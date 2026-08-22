@@ -9,6 +9,7 @@ import {
   integer,
   jsonb,
   pgEnum,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -51,7 +52,7 @@ export const merchants = pgTable('merchants', {
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   businessName: varchar('business_name', { length: 255 }),
   website: text('website'),
-  status: merchantStatusEnum('status'),
+  status: merchantStatusEnum('status').default('active'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -63,7 +64,7 @@ export const merchantWallets = pgTable('merchant_wallets', {
   network: varchar('network', { length: 255 }),
   address: varchar('address', { length: 255 }),
   walletType: walletTypeEnum('wallet_type'),
-  isActive: boolean('is_active'),
+  isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -75,7 +76,7 @@ export const apiKeys = pgTable('api_keys', {
   name: varchar('name', { length: 255 }),
   keyPrefix: varchar('key_prefix', { length: 255 }),
   keyHash: text('key_hash'),
-  environment: apiKeyEnvironmentEnum('environment'),
+  environment: apiKeyEnvironmentEnum('environment').default('test'),
   lastUsedAt: timestamp('last_used_at'),
   expiresAt: timestamp('expires_at'),
   revokedAt: timestamp('revoked_at'),
@@ -83,22 +84,31 @@ export const apiKeys = pgTable('api_keys', {
 });
 
 // 5. payments
-export const payments = pgTable('payments', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  paymentId: varchar('payment_id', { length: 255 }).notNull().unique(),
-  merchantId: uuid('merchant_id').references(() => merchants.id, { onDelete: 'cascade' }),
-  orderId: varchar('order_id', { length: 255 }),
-  amount: numeric('amount'),
-  currency: varchar('currency', { length: 255 }),
-  network: varchar('network', { length: 255 }),
-  status: paymentStatusEnum('status'),
-  checkoutUrl: text('checkout_url'),
-  redirectUrl: text('redirect_url'),
-  expiresAt: timestamp('expires_at'),
-  paidAt: timestamp('paid_at'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+export const payments = pgTable(
+  'payments',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    paymentId: varchar('payment_id', { length: 255 }).notNull().unique(),
+    merchantId: uuid('merchant_id').references(() => merchants.id, { onDelete: 'cascade' }),
+    orderId: varchar('order_id', { length: 255 }),
+    amount: numeric('amount'),
+    currency: varchar('currency', { length: 255 }),
+    network: varchar('network', { length: 255 }),
+    status: paymentStatusEnum('status').default('pending'),
+    checkoutUrl: text('checkout_url'),
+    redirectUrl: text('redirect_url'),
+    webhookUrl: text('webhook_url'),
+    idempotencyKey: varchar('idempotency_key', { length: 255 }),
+    metadata: jsonb('metadata'),
+    expiresAt: timestamp('expires_at'),
+    paidAt: timestamp('paid_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('merchant_idempotency_idx').on(table.merchantId, table.idempotencyKey),
+  ]
+);
 
 // 6. payment_intents
 export const paymentIntents = pgTable('payment_intents', {
@@ -136,8 +146,9 @@ export const webhookEndpoints = pgTable('webhook_endpoints', {
   id: uuid('id').defaultRandom().primaryKey(),
   merchantId: uuid('merchant_id').references(() => merchants.id, { onDelete: 'cascade' }),
   url: text('url'),
+  secret: text('secret'),
   secretHash: text('secret_hash'),
-  isActive: boolean('is_active'),
+  isActive: boolean('is_active').default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

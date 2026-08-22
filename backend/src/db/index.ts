@@ -1,12 +1,9 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as schema from './schema.js';
-import 'dotenv/config';
+import * as schema from './schema';
+import { env } from '../config/env';
 
-const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/apepay';
-
-// Disable prefetch as recommended by postgres.js when used with Drizzle
-const queryClient = postgres(connectionString);
+const queryClient = postgres(env.DATABASE_URL);
 export const db = drizzle(queryClient, { schema });
 
-export * from './schema.js';
+export * from './schema';
