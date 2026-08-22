@@ -10,4 +10,11 @@ export async function dashboardPaymentRoutes(fastify: FastifyInstance) {
     const paymentsList = await paymentService.listMerchantPayments(merchant.id);
     reply.send({ payments: paymentsList });
   });
+
+  fastify.get<{ Params: { id: string } }>('/payments/:id', async (request, reply) => {
+    const { id } = request.params;
+    const merchant = request.merchant!;
+    const payment = await paymentService.getPaymentWithTimeline(id, merchant.id);
+    reply.send(payment);
+  });
 }

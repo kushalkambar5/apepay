@@ -141,6 +141,21 @@ export class PaymentService {
     };
   }
 
+  async getPaymentWithTimeline(publicPaymentId: string, merchantId: string) {
+    const paymentData = await this.getPaymentByPublicId(publicPaymentId, merchantId);
+
+    const events = await db
+      .select()
+      .from(paymentEvents)
+      .where(eq(paymentEvents.paymentId, paymentData.id))
+      .orderBy(desc(paymentEvents.createdAt));
+
+    return {
+      ...paymentData,
+      events,
+    };
+  }
+
   async getCheckoutSession(publicPaymentId: string) {
     const [payment] = await db
       .select()
