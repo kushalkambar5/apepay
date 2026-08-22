@@ -1,0 +1,4 @@
+forge-std/=lib/forge-std/src/
+zkbob-contracts/=lib/zkbob-contracts/src/
+@openzeppelin/contracts/=lib/zkbob-contracts/lib/@openzeppelin/contracts/contracts/
+@base58-solidity/=lib/zkbob-contracts/lib/base58-solidity/contracts/
