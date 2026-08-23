@@ -21,12 +21,19 @@ export async function authenticateApiKey(
   request: FastifyRequest,
   reply: FastifyReply
 ): Promise<void> {
+  let rawKey: string | undefined;
+
   const authHeader = request.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new UnauthorizedError('Missing or invalid Authorization header. Expected Bearer ape_...');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    rawKey = authHeader.replace('Bearer ', '').trim();
+  } else if (typeof request.headers['x-api-key'] === 'string') {
+    rawKey = request.headers['x-api-key'].trim();
   }
 
-  const rawKey = authHeader.replace('Bearer ', '').trim();
+  if (!rawKey) {
+    throw new UnauthorizedError('Missing API Key. Provide via Authorization header (Bearer ape_...) or x-api-key header.');
+  }
+
   if (!rawKey.startsWith('ape_')) {
     throw new UnauthorizedError('Invalid API Key format.');
   }

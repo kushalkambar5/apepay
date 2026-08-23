@@ -19,7 +19,9 @@ export default function ApiKeysPage() {
   const [keyName, setKeyName] = useState<string>('Production Key');
   const [environment, setEnvironment] = useState<'test' | 'live'>('live');
   const [createdKey, setCreatedKey] = useState<string | null>(null);
+  const [createdKeysMap, setCreatedKeysMap] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,12 +57,25 @@ export default function ApiKeysPage() {
     try {
       const newKey = await apiKeysApi.createKey({ name: keyName, environment });
       setIsCreateOpen(false);
-      setCreatedKey(newKey.apiKey || newKey.key || newKey.keyPrefix || 'ape_key_created');
+      const secretKey = newKey.apiKey || newKey.key || newKey.keyPrefix || 'ape_key_created';
+      setCreatedKey(secretKey);
+      if (newKey.id && secretKey) {
+        setCreatedKeysMap((prev) => ({ ...prev, [newKey.id]: secretKey }));
+      }
       await fetchKeys();
     } catch (err: any) {
       setError(err?.message || 'Failed to create API key');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCopyKeyRow = (key: ApiKey) => {
+    const textToCopy = createdKeysMap[key.id] || key.keyPrefix;
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
+      setCopiedRowId(key.id);
+      setTimeout(() => setCopiedRowId(null), 2000);
     }
   };
 
@@ -143,7 +158,22 @@ export default function ApiKeysPage() {
                 <TableRow key={key.id}>
                   <TableCell className="font-medium text-[#171717]">{key.name}</TableCell>
                   <TableCell className="font-mono text-xs text-[#4d4d4d]">
-                    {key.keyPrefix || 'ape_...'}
+                    <div className="flex items-center gap-1.5">
+                      {!key.revokedAt && (
+                        <button
+                          onClick={() => handleCopyKeyRow(key)}
+                          className="p-1 rounded text-[#888888] hover:text-[#171717] hover:bg-[#f5f5f5] transition-colors shrink-0"
+                          title="Copy API key"
+                        >
+                          {copiedRowId === key.id ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
+                      <span>{key.keyPrefix || 'ape_...'}</span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant={key.environment === 'live' ? 'default' : 'neutral'}>

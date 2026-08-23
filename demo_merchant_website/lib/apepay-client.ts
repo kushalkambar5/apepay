@@ -36,7 +36,7 @@ export async function createApePayPayment(
   }
 ): Promise<PaymentResponse> {
   const backendUrl = config?.backendUrl || process.env.NEXT_PUBLIC_APEPAY_API_URL || 'http://localhost:4000';
-  const apiKey = config?.apiKey || process.env.NEXT_PUBLIC_MERCHANT_API_KEY || 'apk_test_1234567890abcdef12345678';
+  const apiKey = config?.apiKey || process.env.NEXT_PUBLIC_MERCHANT_API_KEY || 'ape_live_769de3548d175ad468df920756399af2fe4f6223669b822b';
   const checkoutFrontendUrl = config?.checkoutFrontendUrl || process.env.NEXT_PUBLIC_APEPAY_CHECKOUT_URL || 'http://localhost:3000';
 
   try {
@@ -44,6 +44,7 @@ export async function createApePayPayment(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
         'x-api-key': apiKey,
         'Idempotency-Key': `idemp_${payload.orderId}`,
       },
@@ -102,11 +103,12 @@ export async function fetchApePayPaymentStatus(
   }
 ): Promise<PaymentResponse | null> {
   const backendUrl = config?.backendUrl || process.env.NEXT_PUBLIC_APEPAY_API_URL || 'http://localhost:4000';
-  const apiKey = config?.apiKey || process.env.NEXT_PUBLIC_MERCHANT_API_KEY || 'apk_test_1234567890abcdef12345678';
+  const apiKey = config?.apiKey || process.env.NEXT_PUBLIC_MERCHANT_API_KEY || 'ape_live_769de3548d175ad468df920756399af2fe4f6223669b822b';
 
   try {
     const res = await fetch(`${backendUrl}/v1/payments/${paymentId}`, {
       headers: {
+        'Authorization': `Bearer ${apiKey}`,
         'x-api-key': apiKey,
       },
     });

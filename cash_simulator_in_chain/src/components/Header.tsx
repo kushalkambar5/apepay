@@ -1,7 +1,8 @@
-import React from 'react';
-import { TokenInfo, WalletCluster } from '../types/bubble';
+import React, { useState } from 'react';
+import { TokenInfo } from '../types/bubble';
 import { AnvilStatus } from '../services/anvilService';
-import { Search, Filter, Send, Sparkles, Activity, RefreshCw } from 'lucide-react';
+import { shortenAddress } from '../utils/formatters';
+import { Search, Filter, Send, Sparkles, Activity, RefreshCw, Wallet, Plus, Check } from 'lucide-react';
 
 interface HeaderProps {
   isAnvilMode: boolean;
@@ -16,6 +17,9 @@ interface HeaderProps {
   onToggleHideUnclustered: () => void;
   onRefreshData: () => void;
   onOpenTxSimulator: () => void;
+  metaMaskAddress?: string | null;
+  onConnectMetaMask?: () => void;
+  onAddTrackedWallet?: (address: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,8 +34,28 @@ export const Header: React.FC<HeaderProps> = ({
   hideUnclustered,
   onToggleHideUnclustered,
   onRefreshData,
-  onOpenTxSimulator
+  onOpenTxSimulator,
+  metaMaskAddress,
+  onConnectMetaMask,
+  onAddTrackedWallet
 }) => {
+  const [showAddWalletInput, setShowAddWalletInput] = useState(false);
+  const [customInputAddress, setCustomInputAddress] = useState('');
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const handleAddSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (customInputAddress.trim() && onAddTrackedWallet) {
+      onAddTrackedWallet(customInputAddress.trim());
+      setCustomInputAddress('');
+      setAddSuccess(true);
+      setTimeout(() => {
+        setAddSuccess(false);
+        setShowAddWalletInput(false);
+      }, 1200);
+    }
+  };
+
   return (
     <header className="glass-panel border-b border-slate-800/80 px-6 py-3 flex flex-wrap items-center justify-between gap-4 z-30 relative">
       {/* Brand & Network Mode */}
@@ -138,8 +162,70 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons & Wallet Connection */}
       <div className="flex items-center gap-2">
+        {/* Track Custom Address Button & Form */}
+        {isAnvilMode && (
+          <div className="relative">
+            {showAddWalletInput ? (
+              <form onSubmit={handleAddSubmit} className="flex items-center gap-1 bg-slate-900 border border-cyan-500/60 p-1 rounded-lg">
+                <input
+                  type="text"
+                  value={customInputAddress}
+                  onChange={e => setCustomInputAddress(e.target.value)}
+                  placeholder="0x... address"
+                  className="bg-transparent text-xs font-mono text-slate-100 px-2 py-0.5 focus:outline-none w-36"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white p-1 rounded text-xs font-bold transition flex items-center gap-1 px-2"
+                >
+                  {addSuccess ? <Check className="w-3.5 h-3.5" /> : 'Track'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddWalletInput(false)}
+                  className="text-slate-400 hover:text-slate-200 px-1 text-xs"
+                >
+                  ✕
+                </button>
+              </form>
+            ) : (
+              <button
+                onClick={() => setShowAddWalletInput(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 rounded-lg text-xs font-medium transition"
+                title="Add any custom wallet address to track"
+              >
+                <Plus className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Track Wallet</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* MetaMask Wallet Connection Button */}
+        {metaMaskAddress ? (
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-950/40 border border-cyan-500/50 rounded-lg text-xs font-mono text-cyan-300 font-semibold"
+            title={`Connected MetaMask Account: ${metaMaskAddress}`}
+          >
+            <Wallet className="w-3.5 h-3.5 text-cyan-400" />
+            <span>{shortenAddress(metaMaskAddress, 4)}</span>
+          </div>
+        ) : (
+          onConnectMetaMask && (
+            <button
+              onClick={onConnectMetaMask}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-cyan-500/50 text-slate-200 text-xs font-medium px-3 py-1.5 rounded-lg transition"
+              title="Connect MetaMask Wallet"
+            >
+              <Wallet className="w-3.5 h-3.5 text-amber-400" />
+              <span>Connect MetaMask</span>
+            </button>
+          )
+        )}
+
         {isAnvilMode && (
           <button
             onClick={onRefreshData}

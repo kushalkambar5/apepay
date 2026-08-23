@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'node:crypto';
 
 export interface WebhookRecord {
   id: string;
@@ -10,6 +11,7 @@ export interface WebhookRecord {
   currency?: string;
   status?: string;
   signature?: string;
+  signatureVerified?: boolean;
   payload: any;
 }
 
@@ -22,10 +24,36 @@ if (!global._apepayWebhookLogs) {
   global._apepayWebhookLogs = [];
 }
 
+/**
+ * Verify HMAC-SHA256 signature from ApePay against secret
+ */
+function verifyHmacSignature(rawBody: string, signature: string, secret: string): boolean {
+  if (!signature || !secret) return false;
+  try {
+    const hmac = crypto.createHmac('sha256', secret);
+    hmac.update(rawBody);
+    const expectedSignature = `sha256=${hmac.digest('hex')}`;
+
+    const sigBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (sigBuffer.length !== expectedBuffer.length) return false;
+    return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const rawBody = await request.text();
     const signature = request.headers.get('x-apepay-signature') || request.headers.get('x-signature') || '';
+    const secret = process.env.APEPAY_WEBHOOK_SECRET || process.env.WEBHOOK_SECRET || 'whsec_52953e169b8eef4914e06b1d819afef4f256deead48f0883';
+
+    let signatureVerified = false;
+    if (signature && secret) {
+      signatureVerified = verifyHmacSignature(rawBody, signature, secret);
+    }
 
     let payload: any = {};
     try {
@@ -44,6 +72,7 @@ export async function POST(request: Request) {
       currency: payload.currency || payload.data?.currency || 'ETH',
       status: payload.status || payload.data?.status,
       signature,
+      signatureVerified,
       payload,
     };
 
@@ -54,11 +83,12 @@ export async function POST(request: Request) {
       global._apepayWebhookLogs = global._apepayWebhookLogs.slice(0, 50);
     }
 
-    console.log('[Demo Webhook Receiver] Payment event received:', logEntry.event, logEntry.paymentId);
+    console.log('[Demo Webhook Receiver] Payment event received:', logEntry.event, logEntry.paymentId, 'HMAC Verified:', signatureVerified);
 
     return NextResponse.json({
       success: true,
       message: 'Webhook received successfully by ApeCommerce Store',
+      signatureVerified,
       logId: logEntry.id,
     });
   } catch (error: any) {
@@ -68,3 +98,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

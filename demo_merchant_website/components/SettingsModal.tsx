@@ -46,7 +46,7 @@ export function SettingsModal({
   const handleResetDefaults = () => {
     const defaultBackend = 'http://localhost:4000';
     const defaultCheckout = 'http://localhost:3000';
-    const defaultKey = 'apk_test_1234567890abcdef12345678';
+    const defaultKey = 'ape_live_769de3548d175ad468df920756399af2fe4f6223669b822b';
 
     setBackendInput(defaultBackend);
     setCheckoutInput(defaultCheckout);
@@ -93,17 +93,17 @@ export function SettingsModal({
           <div>
             <label className="flex items-center space-x-1.5 text-xs font-semibold text-[#171717] uppercase tracking-wider font-mono-tech mb-1.5">
               <Key className="h-3.5 w-3.5 text-[#0070f3]" />
-              <span>Merchant API Key (x-api-key)</span>
+              <span>Merchant API Key (x-api-key / Bearer)</span>
             </label>
             <input
               type="text"
               value={keyInput}
               onChange={(e) => setKeyInput(e.target.value)}
-              placeholder="apk_test_..."
+              placeholder="ape_live_..."
               className="w-full rounded-lg border border-[#ebebeb] bg-[#fafafa] px-3 py-2 text-xs font-mono-tech text-[#171717] focus:border-[#171717] focus:bg-white focus:outline-none"
             />
             <p className="mt-1 text-[11px] text-[#888888]">
-              Obtained from your ApePay Dashboard (`/dashboard/api-keys`).
+              Obtained from your ApePay Dashboard (`/dashboard/api-keys`). Must start with `ape_`.
             </p>
           </div>
 
@@ -135,6 +135,23 @@ export function SettingsModal({
               placeholder="http://localhost:3000"
               className="w-full rounded-lg border border-[#ebebeb] bg-[#fafafa] px-3 py-2 text-xs font-mono-tech text-[#171717] focus:border-[#171717] focus:bg-white focus:outline-none"
             />
+          </div>
+
+          {/* Webhook Signing Secret */}
+          <div>
+            <label className="flex items-center space-x-1.5 text-xs font-semibold text-[#171717] uppercase tracking-wider font-mono-tech mb-1.5">
+              <Key className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Webhook Signing Secret (whsec_...)</span>
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={process.env.NEXT_PUBLIC_APEPAY_WEBHOOK_SECRET || 'whsec_52953e169b8eef4914e06b1d819afef4f256deead48f0883'}
+              className="w-full rounded-lg border border-[#ebebeb] bg-[#f5f5f5] px-3 py-2 text-xs font-mono-tech text-[#4d4d4d] cursor-not-allowed"
+            />
+            <p className="mt-1 text-[11px] text-[#888888]">
+              Used by `/api/webhooks/apepay` to verify HMAC-SHA256 signatures from ApePay.
+            </p>
           </div>
 
           {/* Store Webhook Endpoint */}

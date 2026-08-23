@@ -109,9 +109,17 @@ export function WebhookLogsModal({ isOpen, onClose }: WebhookLogsModalProps) {
                 </div>
 
                 {log.signature && (
-                  <div className="text-[10px] text-[#4d4d4d]">
-                    <span className="text-[#888888]">HMAC Signature: </span>
-                    <span className="text-emerald-700 font-mono-tech truncate">{log.signature}</span>
+                  <div className="flex items-center justify-between text-[10px] text-[#4d4d4d]">
+                    <div>
+                      <span className="text-[#888888]">HMAC Signature: </span>
+                      <span className="text-emerald-700 font-mono-tech truncate">{log.signature}</span>
+                    </div>
+                    {log.signatureVerified !== undefined && (
+                      <span className={`inline-flex items-center space-x-1 rounded px-1.5 py-0.5 text-[9px] font-medium ${log.signatureVerified ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        <ShieldCheck className="h-3 w-3" />
+                        <span>{log.signatureVerified ? 'Signature Verified' : 'Unverified Signature'}</span>
+                      </span>
+                    )}
                   </div>
                 )}
 

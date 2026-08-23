@@ -6,6 +6,8 @@ import {
   getAnvilStatus,
   fetchLiveAnvilData,
   sendAnvilTransaction,
+  getConnectedMetaMaskAccounts,
+  connectMetaMask,
   publicClient,
   AnvilStatus
 } from './services/anvilService';
@@ -23,6 +25,12 @@ export const App: React.FC = () => {
   const [anvilStatus, setAnvilStatus] = useState<AnvilStatus>({ isConnected: false, blockNumber: 0 });
 
   const [selectedTokenKey, setSelectedTokenKey] = useState<string>('APE');
+
+  // Tracked MetaMask & Custom Addresses
+  const [metaMaskAddress, setMetaMaskAddress] = useState<string | null>(null);
+  const [extraTrackedAddresses, setExtraTrackedAddresses] = useState<string[]>([
+    '0x5d760B94dA2D248cC5e4688F7FbF04840C885FdB' // User's MetaMask account
+  ]);
 
   // Active dataset state
   const currentDataset = TOKEN_DATASETS[selectedTokenKey] || TOKEN_DATASETS['APE'];
@@ -44,9 +52,17 @@ export const App: React.FC = () => {
     const status = await getAnvilStatus();
     setAnvilStatus(status);
 
+    // Update MetaMask connected account state
+    const mmAccounts = await getConnectedMetaMaskAccounts();
+    if (mmAccounts.length > 0) {
+      setMetaMaskAddress(mmAccounts[0]);
+    } else {
+      setMetaMaskAddress(null);
+    }
+
     if (status.isConnected) {
       try {
-        const live = await fetchLiveAnvilData();
+        const live = await fetchLiveAnvilData(extraTrackedAddresses);
         setTokenInfo(live.tokenInfo);
         setNodes(live.nodes);
         setLinks(live.links);
@@ -54,7 +70,50 @@ export const App: React.FC = () => {
         console.error('Failed to load Anvil RPC data:', err);
       }
     }
-  }, []);
+  }, [extraTrackedAddresses]);
+
+  // Listen for MetaMask account changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).ethereum) {
+      const handleAccountsChanged = (accs: string[]) => {
+        if (accs.length > 0) {
+          setMetaMaskAddress(accs[0].toLowerCase());
+          setExtraTrackedAddresses(prev => Array.from(new Set([...prev, accs[0].toLowerCase()])));
+        } else {
+          setMetaMaskAddress(null);
+        }
+        loadAnvilData();
+      };
+      (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
+      return () => {
+        (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged);
+      };
+    }
+  }, [loadAnvilData]);
+
+  // Connect MetaMask handler
+  const handleConnectMetaMask = async () => {
+    try {
+      const accounts = await connectMetaMask();
+      if (accounts.length > 0) {
+        setMetaMaskAddress(accounts[0]);
+        setExtraTrackedAddresses(prev => Array.from(new Set([...prev, accounts[0]])));
+        await loadAnvilData();
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Failed to connect MetaMask wallet.');
+    }
+  };
+
+  // Add custom tracked wallet handler
+  const handleAddTrackedWallet = (address: string) => {
+    const lower = address.toLowerCase();
+    setExtraTrackedAddresses(prev => {
+      if (prev.includes(lower)) return prev;
+      return [...prev, lower];
+    });
+    loadAnvilData();
+  };
 
   // Poll Anvil connection status & subscribe to blocks
   useEffect(() => {
@@ -195,6 +254,9 @@ export const App: React.FC = () => {
         onToggleHideUnclustered={() => setHideUnclustered(prev => !prev)}
         onRefreshData={loadAnvilData}
         onOpenTxSimulator={() => setIsTxSimulatorOpen(true)}
+        metaMaskAddress={metaMaskAddress}
+        onConnectMetaMask={handleConnectMetaMask}
+        onAddTrackedWallet={handleAddTrackedWallet}
       />
 
       {/* Metric Cards Overview */}

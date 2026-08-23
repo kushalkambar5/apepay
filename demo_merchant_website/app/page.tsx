@@ -20,9 +20,9 @@ export default function Home() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // ApePay API configuration state
-  const [apiKey, setApiKey] = useState('apk_test_1234567890abcdef12345678');
-  const [backendUrl, setBackendUrl] = useState('http://localhost:4000');
-  const [checkoutFrontendUrl, setCheckoutFrontendUrl] = useState('http://localhost:3000');
+  const [apiKey, setApiKey] = useState(process.env.NEXT_PUBLIC_MERCHANT_API_KEY || 'ape_live_769de3548d175ad468df920756399af2fe4f6223669b822b');
+  const [backendUrl, setBackendUrl] = useState(process.env.NEXT_PUBLIC_APEPAY_API_URL || 'http://localhost:4000');
+  const [checkoutFrontendUrl, setCheckoutFrontendUrl] = useState(process.env.NEXT_PUBLIC_APEPAY_CHECKOUT_URL || 'http://localhost:3000');
   const [apiStatus, setApiStatus] = useState<'connected' | 'disconnected' | 'testing'>('testing');
 
   // Check API health on mount or settings update
