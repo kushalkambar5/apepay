@@ -1,4 +1,4 @@
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and, isNull, desc } from 'drizzle-orm';
 import { db, apiKeys } from '../../db';
 import { generateApiKey } from '../../lib/crypto';
 import { NotFoundError } from '../../lib/errors';
@@ -41,14 +41,15 @@ export class ApiKeyService {
         createdAt: apiKeys.createdAt,
       })
       .from(apiKeys)
-      .where(eq(apiKeys.merchantId, merchantId));
+      .where(eq(apiKeys.merchantId, merchantId))
+      .orderBy(desc(apiKeys.createdAt));
   }
 
   async revokeApiKey(merchantId: string, keyId: string) {
     const [revokedKey] = await db
       .update(apiKeys)
       .set({ revokedAt: new Date() })
-      .where(and(eq(apiKeys.id, keyId), eq(apiKeys.merchantId, merchantId)))
+      .where(and(eq(apiKeys.id, keyId), eq(apiKeys.merchantId, merchantId), isNull(apiKeys.revokedAt)))
       .returning();
 
     if (!revokedKey) {

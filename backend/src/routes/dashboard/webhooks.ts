@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { webhookService } from '../../modules/webhooks/webhook.service';
 import { authenticateDashboard } from '../../middleware/auth.middleware';
+import { NotFoundError } from '../../lib/errors';
 
 const addEndpointSchema = z.object({
   url: z.string().url(),
@@ -38,6 +39,11 @@ export async function dashboardWebhookRoutes(fastify: FastifyInstance) {
 
   fastify.post<{ Params: { id: string } }>('/webhooks/:id/retry', async (request, reply) => {
     const { id } = request.params;
+    const merchant = request.merchant!;
+    const delivery = await webhookService.getDelivery(merchant.id, id);
+    if (!delivery) {
+      throw new NotFoundError('Webhook delivery not found');
+    }
     await webhookService.deliverWebhook(id);
     reply.send({ success: true, message: 'Webhook delivery re-triggered' });
   });

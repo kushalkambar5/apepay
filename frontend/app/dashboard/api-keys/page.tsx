@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/dashboard/Header';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
@@ -11,7 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { apiKeysApi } from '@/lib/api/api-keys';
 import { ApiKey } from '@/types';
 import { formatDate, formatRelativeTime } from '@/lib/formatters';
-import { Plus, Key, Copy, Check, Trash2 } from 'lucide-react';
+import { Plus, Key, Copy, Check, Trash2, Loader2, AlertCircle } from 'lucide-react';
 
 export default function ApiKeysPage() {
   const [keys, setKeys] = useState<ApiKey[]>([]);
@@ -22,6 +21,7 @@ export default function ApiKeysPage() {
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchKeys = async () => {
@@ -29,8 +29,9 @@ export default function ApiKeysPage() {
     try {
       const res = await apiKeysApi.listKeys();
       setKeys(res.keys || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch API keys', err);
+      setError(err?.message || 'Failed to fetch API keys');
     } finally {
       setLoading(false);
     }
@@ -40,6 +41,13 @@ export default function ApiKeysPage() {
     fetchKeys();
   }, []);
 
+  const handleOpenCreateModal = () => {
+    setError(null);
+    setKeyName('Production Key');
+    setEnvironment('live');
+    setIsCreateOpen(true);
+  };
+
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -47,8 +55,8 @@ export default function ApiKeysPage() {
     try {
       const newKey = await apiKeysApi.createKey({ name: keyName, environment });
       setIsCreateOpen(false);
-      setCreatedKey(newKey.key || newKey.keyPrefix || 'ape_key_created');
-      fetchKeys();
+      setCreatedKey(newKey.apiKey || newKey.key || newKey.keyPrefix || 'ape_key_created');
+      await fetchKeys();
     } catch (err: any) {
       setError(err?.message || 'Failed to create API key');
     } finally {
@@ -58,11 +66,16 @@ export default function ApiKeysPage() {
 
   const handleRevokeKey = async (keyId: string) => {
     if (!confirm('Are you sure you want to revoke this API key? Applications using it will lose access.')) return;
+    setRevokingId(keyId);
+    setError(null);
     try {
       await apiKeysApi.revokeKey(keyId);
-      fetchKeys();
-    } catch (err) {
+      await fetchKeys();
+    } catch (err: any) {
       console.error('Failed to revoke API key', err);
+      setError(err?.message || 'Failed to revoke API key');
+    } finally {
+      setRevokingId(null);
     }
   };
 
@@ -86,11 +99,18 @@ export default function ApiKeysPage() {
               Manage API keys for server-side payment session creation.
             </p>
           </div>
-          <Button onClick={() => setIsCreateOpen(true)} variant="primary" size="sm">
+          <Button onClick={handleOpenCreateModal} variant="primary" size="sm">
             <Plus className="mr-1.5 h-3.5 w-3.5" />
             <span>Create key</span>
           </Button>
         </div>
+
+        {error && !isCreateOpen && (
+          <div className="rounded-md bg-[#ee0000]/10 border border-[#ee0000]/20 p-3 text-xs text-[#ee0000] flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* API Keys Table */}
         <Table>
@@ -99,15 +119,22 @@ export default function ApiKeysPage() {
               <TableHead>Name</TableHead>
               <TableHead>Key Prefix</TableHead>
               <TableHead>Environment</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Last Used</TableHead>
               <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {keys.length === 0 ? (
+            {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-xs text-[#888888]">
+                <TableCell colSpan={7} className="text-center py-8 text-xs text-[#888888]">
+                  Loading API keys...
+                </TableCell>
+              </TableRow>
+            ) : keys.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-xs text-[#888888]">
                   No API keys generated yet. Click &quot;Create key&quot; above to issue one.
                 </TableCell>
               </TableRow>
@@ -123,6 +150,13 @@ export default function ApiKeysPage() {
                       {key.environment}
                     </Badge>
                   </TableCell>
+                  <TableCell>
+                    {key.revokedAt ? (
+                      <Badge variant="error">Revoked</Badge>
+                    ) : (
+                      <Badge variant="success">Active</Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-xs text-[#888888]">
                     {formatDate(key.createdAt)}
                   </TableCell>
@@ -130,13 +164,22 @@ export default function ApiKeysPage() {
                     {key.lastUsedAt ? formatRelativeTime(key.lastUsedAt) : 'Never'}
                   </TableCell>
                   <TableCell className="text-right">
-                    <button
-                      onClick={() => handleRevokeKey(key.id)}
-                      className="text-[#ee0000] hover:text-[#c50000] p-1 transition-colors"
-                      title="Revoke key"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {key.revokedAt ? (
+                      <span className="text-xs text-[#888888] italic">Revoked</span>
+                    ) : (
+                      <button
+                        onClick={() => handleRevokeKey(key.id)}
+                        disabled={revokingId === key.id}
+                        className="text-[#ee0000] hover:text-[#c50000] disabled:opacity-50 p-1 transition-colors"
+                        title="Revoke key"
+                      >
+                        {revokingId === key.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-[#888888]" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -208,10 +251,11 @@ export default function ApiKeysPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 rounded-lg border border-[#ebebeb] bg-[#171717] p-3 text-white font-mono text-xs">
               <Key className="h-4 w-4 text-[#0070f3] shrink-0" />
-              <span className="flex-1 truncate">{createdKey}</span>
+              <span className="flex-1 truncate select-all">{createdKey}</span>
               <button
                 onClick={handleCopyKey}
                 className="p-1 rounded hover:bg-white/20 transition-colors"
+                title="Copy key"
               >
                 {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
               </button>

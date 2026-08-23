@@ -2,16 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/dashboard/Header';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
-import { Badge } from '@/components/ui/Badge';
 import { webhooksApi } from '@/lib/api/webhooks';
 import { WebhookDelivery, WebhookEndpoint } from '@/types';
 import { formatDate, formatRelativeTime } from '@/lib/formatters';
-import { Plus, Webhook, RefreshCw, Trash2, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, Webhook, RefreshCw, Trash2, CheckCircle2, XCircle, Copy, Check, Key, Loader2, AlertCircle } from 'lucide-react';
 
 export default function WebhooksPage() {
   const [deliveries, setDeliveries] = useState<WebhookDelivery[]>([]);
@@ -21,6 +20,9 @@ export default function WebhooksPage() {
   const [url, setUrl] = useState<string>('https://kushstore.com/api/payment/webhook');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [newSecret, setNewSecret] = useState<string | null>(null);
+  const [copiedSecret, setCopiedSecret] = useState<boolean>(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -32,8 +34,9 @@ export default function WebhooksPage() {
       ]);
       setDeliveries(delRes.deliveries || []);
       setEndpoints(endRes.endpoints || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch webhooks data', err);
+      setError(err?.message || 'Failed to load webhooks data');
     } finally {
       setLoading(false);
     }
@@ -42,6 +45,12 @@ export default function WebhooksPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleOpenAddModal = () => {
+    setError(null);
+    setUrl('https://kushstore.com/api/payment/webhook');
+    setIsAddOpen(true);
+  };
 
   const handleAddEndpoint = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +62,7 @@ export default function WebhooksPage() {
       if (created.secret) {
         setNewSecret(created.secret);
       }
-      fetchData();
+      await fetchData();
     } catch (err: any) {
       setError(err?.message || 'Failed to add webhook endpoint');
     } finally {
@@ -63,20 +72,38 @@ export default function WebhooksPage() {
 
   const handleDeleteEndpoint = async (id: string) => {
     if (!confirm('Are you sure you want to remove this webhook endpoint?')) return;
+    setDeletingId(id);
+    setError(null);
     try {
       await webhooksApi.deleteEndpoint(id);
-      fetchData();
-    } catch (err) {
+      await fetchData();
+    } catch (err: any) {
       console.error('Failed to delete endpoint', err);
+      setError(err?.message || 'Failed to delete webhook endpoint');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   const handleRetryDelivery = async (deliveryId: string) => {
+    setRetryingId(deliveryId);
+    setError(null);
     try {
       await webhooksApi.retryDelivery(deliveryId);
-      fetchData();
-    } catch (err) {
+      await fetchData();
+    } catch (err: any) {
       console.error('Failed to retry webhook', err);
+      setError(err?.message || 'Failed to re-trigger webhook delivery');
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
+  const handleCopySecret = () => {
+    if (newSecret) {
+      navigator.clipboard.writeText(newSecret);
+      setCopiedSecret(true);
+      setTimeout(() => setCopiedSecret(false), 2000);
     }
   };
 
@@ -85,6 +112,13 @@ export default function WebhooksPage() {
       <Header title="Webhooks" />
 
       <div className="px-8 space-y-8">
+        {error && !isAddOpen && (
+          <div className="rounded-md bg-[#ee0000]/10 border border-[#ee0000]/20 p-3 text-xs text-[#ee0000] flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Endpoint Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -94,14 +128,18 @@ export default function WebhooksPage() {
                 Receive real-time signed HTTP POST notifications when payments are verified.
               </p>
             </div>
-            <Button onClick={() => setIsAddOpen(true)} variant="primary" size="sm">
+            <Button onClick={handleOpenAddModal} variant="primary" size="sm">
               <Plus className="mr-1.5 h-3.5 w-3.5" />
               <span>Add endpoint</span>
             </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {endpoints.length === 0 ? (
+            {loading ? (
+              <Card className="col-span-2 p-6 text-center text-xs text-[#888888]">
+                Loading webhook endpoints...
+              </Card>
+            ) : endpoints.length === 0 ? (
               <Card className="col-span-2 p-6 text-center text-xs text-[#888888]">
                 No webhook endpoints added yet. Add an endpoint URL to receive payment events.
               </Card>
@@ -122,9 +160,15 @@ export default function WebhooksPage() {
                     <span>Events: payment.paid, payment.failed, payment.expired</span>
                     <button
                       onClick={() => handleDeleteEndpoint(ep.id)}
-                      className="text-[#ee0000] hover:text-[#c50000] transition-colors p-1"
+                      disabled={deletingId === ep.id}
+                      className="text-[#ee0000] hover:text-[#c50000] disabled:opacity-50 transition-colors p-1"
+                      title="Delete endpoint"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      {deletingId === ep.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#888888]" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
                     </button>
                   </div>
                 </Card>
@@ -148,7 +192,13 @@ export default function WebhooksPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {deliveries.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-xs text-[#888888]">
+                    Loading recent deliveries...
+                  </TableCell>
+                </TableRow>
+              ) : deliveries.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-xs text-[#888888]">
                     No webhook deliveries logged yet.
@@ -185,9 +235,14 @@ export default function WebhooksPage() {
                     <TableCell className="text-right">
                       <button
                         onClick={() => handleRetryDelivery(delivery.id)}
-                        className="inline-flex items-center gap-1 text-xs font-mono text-[#0070f3] hover:underline"
+                        disabled={retryingId === delivery.id}
+                        className="inline-flex items-center gap-1 text-xs font-mono text-[#0070f3] hover:underline disabled:opacity-50"
                       >
-                        <RefreshCw className="h-3 w-3" />
+                        {retryingId === delivery.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-[#0070f3]" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3" />
+                        )}
                         <span>Retry</span>
                       </button>
                     </TableCell>
@@ -235,9 +290,24 @@ export default function WebhooksPage() {
           description="Use this secret to verify X-ApePay-Signature HMAC headers on your server."
         >
           <div className="space-y-4">
-            <div className="rounded-lg border border-[#ebebeb] bg-[#171717] p-3 text-white font-mono text-xs break-all">
-              {newSecret}
+            <div className="flex items-center gap-2 rounded-lg border border-[#ebebeb] bg-[#171717] p-3 text-white font-mono text-xs">
+              <Key className="h-4 w-4 text-[#0070f3] shrink-0" />
+              <span className="flex-1 truncate select-all">{newSecret}</span>
+              <button
+                onClick={handleCopySecret}
+                className="p-1 rounded hover:bg-white/20 transition-colors shrink-0"
+                title="Copy signing secret"
+              >
+                {copiedSecret ? (
+                  <Check className="h-4 w-4 text-emerald-400" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </button>
             </div>
+            <p className="text-[11px] text-[#888888]">
+              Store this secret safely in your backend environment configuration.
+            </p>
             <Button onClick={() => setNewSecret(null)} className="w-full">
               Done
             </Button>

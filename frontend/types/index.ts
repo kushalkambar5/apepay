@@ -41,6 +41,7 @@ export interface ApiKey {
   keyPrefix: string;
   keyHash?: string;
   key?: string; // Only present upon creation
+  apiKey?: string; // Returned upon creation from backend
   environment: 'test' | 'live';
   lastUsedAt?: string | null;
   expiresAt?: string | null;

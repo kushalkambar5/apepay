@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, inArray } from 'drizzle-orm';
 import { db, webhookEndpoints, webhookDeliveries, payments } from '../../db';
 import { signWebhookPayload } from '../../lib/crypto';
 import { logger } from '../../lib/logger';
@@ -40,6 +40,10 @@ export class WebhookService {
   }
 
   async deleteEndpoint(merchantId: string, endpointId: string) {
+    await db
+      .delete(webhookDeliveries)
+      .where(eq(webhookDeliveries.webhookEndpointId, endpointId));
+
     const [deleted] = await db
       .delete(webhookEndpoints)
       .where(
@@ -190,6 +194,25 @@ export class WebhookService {
       .where(eq(webhookDeliveries.id, deliveryId));
   }
 
+  async getDelivery(merchantId: string, deliveryId: string) {
+    const endpoints = await this.listEndpoints(merchantId);
+    const endpointIds = endpoints.map((e) => e.id);
+    if (endpointIds.length === 0) return null;
+
+    const [delivery] = await db
+      .select()
+      .from(webhookDeliveries)
+      .where(
+        and(
+          eq(webhookDeliveries.id, deliveryId),
+          inArray(webhookDeliveries.webhookEndpointId, endpointIds)
+        )
+      )
+      .limit(1);
+
+    return delivery || null;
+  }
+
   async listDeliveries(merchantId: string) {
     const endpoints = await this.listEndpoints(merchantId);
     const endpointIds = endpoints.map((e) => e.id);
@@ -198,6 +221,7 @@ export class WebhookService {
     return db
       .select()
       .from(webhookDeliveries)
+      .where(inArray(webhookDeliveries.webhookEndpointId, endpointIds))
       .orderBy(desc(webhookDeliveries.createdAt))
       .limit(50);
   }

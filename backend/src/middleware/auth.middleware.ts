@@ -104,9 +104,16 @@ export async function authenticateDashboard(
       .where(eq(merchants.id, payload.merchantId))
       .limit(1);
 
+    if (!merchant) {
+      throw new UnauthorizedError('Merchant account not found');
+    }
+
     request.user = user;
     request.merchant = merchant;
   } catch (err) {
+    if (err instanceof UnauthorizedError || err instanceof ForbiddenError) {
+      throw err;
+    }
     throw new UnauthorizedError('Invalid or expired dashboard session token');
   }
 }

@@ -51,10 +51,6 @@ export default function MarketingLandingPage() {
 
       {/* Hero Section */}
       <section className="py-24 px-6 text-center max-w-4xl mx-auto space-y-8">
-        <div className="inline-flex items-center gap-2 rounded-full border border-[#ebebeb] bg-[#fafafa] px-4 py-1.5 text-xs font-mono text-[#4d4d4d]">
-          <span className="h-2 w-2 rounded-full bg-[#0070f3] animate-pulse" />
-          <span>zkBob Zero-Knowledge Payment Infrastructure</span>
-        </div>
 
         <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight text-[#171717] leading-[1.1]">
           Private crypto payments <br className="hidden sm:inline" />
