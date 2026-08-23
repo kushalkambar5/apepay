@@ -43,6 +43,18 @@ export function errorHandler(
     return;
   }
 
+  // Handle Postgres / Drizzle invalid UUID syntax error (Postgres error code 22P02)
+  const errCode = (error as any)?.code || (error as any)?.cause?.code;
+  if (errCode === '22P02') {
+    reply.status(400).send({
+      error: {
+        code: 'BAD_REQUEST',
+        message: 'Invalid ID format provided',
+      },
+    });
+    return;
+  }
+
   logger.error({ err: error, url: request.url, method: request.method }, 'Unhandled API Error');
 
   reply.status(500).send({

@@ -8,6 +8,10 @@ const createApiKeySchema = z.object({
   environment: z.enum(['test', 'live']).optional().default('test'),
 });
 
+const paramIdSchema = z.object({
+  id: z.string().uuid({ message: 'Invalid API Key ID format' }),
+});
+
 export async function dashboardApiKeyRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authenticateDashboard);
 
@@ -25,7 +29,7 @@ export async function dashboardApiKeyRoutes(fastify: FastifyInstance) {
   });
 
   fastify.delete<{ Params: { id: string } }>('/api-keys/:id', async (request, reply) => {
-    const { id } = request.params;
+    const { id } = paramIdSchema.parse(request.params);
     const merchant = request.merchant!;
     const revoked = await apiKeyService.revokeApiKey(merchant.id, id);
     reply.send({ success: true, key: revoked });

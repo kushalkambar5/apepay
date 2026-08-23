@@ -25,6 +25,9 @@ export const webhooksApi = {
   },
 
   async deleteEndpoint(id: string): Promise<{ success: boolean }> {
+    if (!id || id === 'undefined') {
+      throw new Error('Invalid Webhook endpoint ID');
+    }
     return apiRequest<{ success: boolean }>(`/dashboard/webhooks/endpoints/${id}`, {
       method: 'DELETE',
     });

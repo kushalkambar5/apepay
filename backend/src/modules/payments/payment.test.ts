@@ -22,7 +22,7 @@ describe('Payment & API Key Service Integration', () => {
   });
 
   it('should create payment session successfully', async () => {
-    const payment = await paymentService.createPayment({
+    const payment: any = await paymentService.createPayment({
       merchantId,
       amount: '0.05',
       currency: 'ETH',

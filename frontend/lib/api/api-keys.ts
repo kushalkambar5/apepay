@@ -21,6 +21,9 @@ export const apiKeysApi = {
   },
 
   async revokeKey(keyId: string): Promise<{ success: boolean; key: ApiKey }> {
+    if (!keyId || keyId === 'undefined') {
+      throw new Error('Invalid API key ID');
+    }
     return apiRequest<{ success: boolean; key: ApiKey }>(
       `/dashboard/api-keys/${keyId}`,
       {

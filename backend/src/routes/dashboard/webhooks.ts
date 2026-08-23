@@ -8,6 +8,10 @@ const addEndpointSchema = z.object({
   url: z.string().url(),
 });
 
+const paramIdSchema = z.object({
+  id: z.string().uuid({ message: 'Invalid ID format' }),
+});
+
 export async function dashboardWebhookRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authenticateDashboard);
 
@@ -31,14 +35,14 @@ export async function dashboardWebhookRoutes(fastify: FastifyInstance) {
   });
 
   fastify.delete<{ Params: { id: string } }>('/webhooks/endpoints/:id', async (request, reply) => {
-    const { id } = request.params;
+    const { id } = paramIdSchema.parse(request.params);
     const merchant = request.merchant!;
     const deleted = await webhookService.deleteEndpoint(merchant.id, id);
     reply.send({ success: true, endpoint: deleted });
   });
 
   fastify.post<{ Params: { id: string } }>('/webhooks/:id/retry', async (request, reply) => {
-    const { id } = request.params;
+    const { id } = paramIdSchema.parse(request.params);
     const merchant = request.merchant!;
     const delivery = await webhookService.getDelivery(merchant.id, id);
     if (!delivery) {

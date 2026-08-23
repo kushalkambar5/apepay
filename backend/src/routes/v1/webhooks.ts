@@ -7,6 +7,10 @@ const registerWebhookSchema = z.object({
   url: z.string().url(),
 });
 
+const paramIdSchema = z.object({
+  id: z.string().uuid({ message: 'Invalid Webhook endpoint ID format' }),
+});
+
 export async function webhooksV1Routes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', authenticateApiKey);
 
@@ -44,7 +48,7 @@ export async function webhooksV1Routes(fastify: FastifyInstance) {
    * Delete a webhook endpoint
    */
   fastify.delete<{ Params: { id: string } }>('/webhook-endpoints/:id', async (request, reply) => {
-    const { id } = request.params;
+    const { id } = paramIdSchema.parse(request.params);
     const merchant = request.merchant!;
 
     await webhookService.deleteEndpoint(merchant.id, id);
