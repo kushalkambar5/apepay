@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useWallet } from '@/hooks/use-wallet';
@@ -105,9 +106,13 @@ export default function OnboardingWizardPage() {
         {/* Brand Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 font-bold text-xl text-[#171717]">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#171717] text-white">
-              <Shield className="h-5 w-5" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="ApePay Logo"
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-lg object-contain"
+            />
             <span>ApePay Onboarding</span>
           </div>
           <p className="text-xs font-mono text-[#888888]">Step {step} of 5</p>
@@ -131,8 +136,14 @@ export default function OnboardingWizardPage() {
           {/* STEP 1: WELCOME */}
           {step === 1 && (
             <div className="text-center space-y-6 py-4">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#171717] text-white">
-                <Shield className="h-8 w-8" />
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden bg-[#fafafa] border border-[#ebebeb]">
+                <Image
+                  src="/logo.png"
+                  alt="ApePay Logo"
+                  width={64}
+                  height={64}
+                  className="h-14 w-14 object-contain"
+                />
               </div>
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold tracking-tight text-[#171717]">

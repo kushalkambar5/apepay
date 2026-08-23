@@ -16,6 +16,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ApePay — Private Ethereum Payment Infrastructure",
   description: "Accept Ethereum payments without exposing customer wallets to merchants via zkBob zero-knowledge privacy pool.",
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+    ],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

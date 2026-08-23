@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ApeGear Store | Privacy-Preserving Demo Merchant',
+  title: 'ApeCommerce Store | Privacy-Preserving Demo Merchant',
   description:
     'Demonstration e-commerce storefront powered by ApePay crypto payment gateway and zkBob zero-knowledge privacy commitment protocol.',
 };

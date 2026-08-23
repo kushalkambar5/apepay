@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: 'Webhook received successfully by ApeGear Store',
+      message: 'Webhook received successfully by ApeCommerce Store',
       logId: logEntry.id,
     });
   } catch (error: any) {

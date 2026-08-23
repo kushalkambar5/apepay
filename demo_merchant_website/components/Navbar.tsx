@@ -31,7 +31,7 @@ export function Navbar({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#171717] text-white shadow-sm">
               <Shield className="h-4 w-4" />
             </div>
-            <span className="text-lg font-semibold tracking-tight text-[#171717]">ApeGear</span>
+            <span className="text-lg font-semibold tracking-tight text-[#171717]">ApeCommerce</span>
           </a>
           <span className="inline-flex items-center rounded-full bg-[#fafafa] px-2.5 py-0.5 text-xs font-medium text-[#888888] border border-[#ebebeb] font-mono-tech">
             DEMO MERCHANT

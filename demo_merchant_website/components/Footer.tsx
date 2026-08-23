@@ -19,7 +19,7 @@ export function Footer({ onOpenSettings, onOpenWebhookLogs }: FooterProps) {
               <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#171717] text-white">
                 <Shield className="h-3.5 w-3.5" />
               </div>
-              <span className="text-base font-semibold text-[#171717]">ApeGear Store</span>
+              <span className="text-base font-semibold text-[#171717]">ApeCommerce Store</span>
             </div>
             <p className="mt-3 text-xs text-[#888888] leading-relaxed">
               Official demonstration merchant store showcasing privacy-preserving crypto payments via ApePay.
@@ -86,7 +86,7 @@ export function Footer({ onOpenSettings, onOpenWebhookLogs }: FooterProps) {
 
         {/* Bottom Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between border-t border-[#ebebeb] pt-8 text-xs text-[#888888]">
-          <p>© 2026 ApeGear Store. Powered by ApePay Privacy Gateway.</p>
+          <p>© 2026 ApeCommerce Store. Powered by ApePay Privacy Gateway.</p>
           <div className="mt-4 sm:mt-0 flex items-center space-x-4 font-mono-tech text-[11px]">
             <span>STRICT IDEMPOTENCY ENABLED</span>
             <span>•</span>

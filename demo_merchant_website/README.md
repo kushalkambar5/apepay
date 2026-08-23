@@ -1,4 +1,4 @@
-# ApeGear Store — ApePay Demo Merchant E-Commerce Website
+# ApeCommerce Store — ApePay Demo Merchant E-Commerce Website
 
 This is a demonstration e-commerce storefront for **ApePay** — a privacy-preserving EVM crypto payment gateway powered by zero-knowledge commitment protocols (zkBob).
 
@@ -42,13 +42,14 @@ npm install
 npm run dev
 ```
 
-*The store will launch at [http://localhost:3001](http://localhost:3001).*
+_The store will launch at [http://localhost:3001](http://localhost:3001)._
 
 ---
 
 ## ⚡ Integration with ApePay Gateway
 
 1. **Start ApePay Backend**:
+
    ```bash
    cd ../backend
    npm run dev
@@ -56,6 +57,7 @@ npm run dev
    ```
 
 2. **Start ApePay Hosted Checkout UI**:
+
    ```bash
    cd ../frontend
    npm run dev

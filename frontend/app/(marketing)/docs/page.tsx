@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Shield } from 'lucide-react';
 
@@ -11,9 +12,13 @@ export default function PublicDocsPage() {
       <header className="sticky top-0 z-40 w-full border-b border-[#ebebeb] bg-white/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 font-bold text-lg text-[#171717]">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#171717] text-white">
-              <Shield className="h-4 w-4" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="ApePay Logo"
+              width={28}
+              height={28}
+              className="h-7 w-7 rounded-lg object-contain"
+            />
             <span>ApePay Public Docs</span>
           </Link>
 

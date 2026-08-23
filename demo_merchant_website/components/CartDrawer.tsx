@@ -66,7 +66,7 @@ export function CartDrawer({
           redirectUrl: `${storeBaseUrl}/order-success?orderId=${orderId}`,
           webhookUrl: `${storeBaseUrl}/api/webhooks/apepay`,
           metadata: {
-            storeName: 'ApeGear Store',
+            storeName: 'ApeCommerce Store',
             customerEmail,
             itemsCount: items.length,
             items: items.map((i) => ({

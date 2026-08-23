@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -44,9 +45,13 @@ export default function LoginPage() {
         {/* Brand Logo */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2 font-bold text-xl text-[#171717]">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#171717] text-white">
-              <Shield className="h-5 w-5" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="ApePay Logo"
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded-lg object-contain"
+            />
             <span>ApePay</span>
           </Link>
           <p className="text-xs font-mono text-[#888888]">

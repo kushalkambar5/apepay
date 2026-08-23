@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, use } from 'react';
+import Image from 'next/image';
 import { checkoutApi } from '@/lib/api/checkout';
 import { CheckoutSession, CheckoutState } from '@/types';
 import { useWallet } from '@/hooks/use-wallet';
@@ -157,7 +158,13 @@ export default function HostedCheckoutPage({
       {/* Top Header */}
       <div className="w-full max-w-md mx-auto text-center space-y-1">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#ebebeb] bg-white text-xs font-mono text-[#4d4d4d] shadow-2xs">
-          <Shield className="h-3.5 w-3.5 text-[#0070f3]" />
+          <Image
+            src="/logo.png"
+            alt="ApePay Logo"
+            width={16}
+            height={16}
+            className="h-4 w-4 rounded-sm object-contain"
+          />
           <span>Secured by ApePay</span>
         </div>
       </div>
