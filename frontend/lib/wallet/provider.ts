@@ -1,3 +1,4 @@
+import { getAddress, isAddress } from 'viem';
 import { WalletAccount, WalletStatus } from './types';
 import { ANVIL_CHAIN_ID, ANVIL_HEX_CHAIN_ID, ANVIL_NETWORK_CONFIG } from './network';
 
@@ -27,7 +28,8 @@ export async function connectWallet(): Promise<WalletAccount> {
     throw new Error('No accounts selected in MetaMask.');
   }
 
-  const address = accounts[0];
+  const rawAddress = accounts[0];
+  const address = isAddress(rawAddress) ? getAddress(rawAddress) : rawAddress;
   const chainIdHex = (await provider.request({ method: 'eth_chainId' })) as string;
   const chainId = parseInt(chainIdHex, 16);
 

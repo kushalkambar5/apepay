@@ -1,4 +1,5 @@
 import { eq, and } from 'drizzle-orm';
+import { getAddress, isAddress } from 'viem';
 import { db, merchants, merchantWallets } from '../../db';
 import { NotFoundError } from '../../lib/errors';
 
@@ -21,7 +22,10 @@ export class MerchantService {
 
     return {
       ...merchant,
-      wallets,
+      wallets: wallets.map((w) => ({
+        ...w,
+        address: w.address && isAddress(w.address) ? getAddress(w.address) : w.address,
+      })),
     };
   }
 
@@ -39,11 +43,12 @@ export class MerchantService {
   }
 
   async addWallet(merchantId: string, data: { address: string; network: string; walletType?: 'payout' | 'authentication' }) {
+    const formattedAddress = data.address && isAddress(data.address) ? getAddress(data.address) : data.address;
     const [wallet] = await db
       .insert(merchantWallets)
       .values({
         merchantId,
-        address: data.address,
+        address: formattedAddress,
         network: data.network || 'anvil',
         walletType: data.walletType || 'payout',
         isActive: true,
@@ -54,10 +59,15 @@ export class MerchantService {
   }
 
   async getWallets(merchantId: string) {
-    return db
+    const wallets = await db
       .select()
       .from(merchantWallets)
       .where(eq(merchantWallets.merchantId, merchantId));
+
+    return wallets.map((w) => ({
+      ...w,
+      address: w.address && isAddress(w.address) ? getAddress(w.address) : w.address,
+    }));
   }
 }
 

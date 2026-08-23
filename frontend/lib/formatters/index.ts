@@ -1,7 +1,17 @@
+import { getAddress, isAddress } from 'viem';
+
 export function formatAddress(address?: string | null): string {
   if (!address) return '';
-  if (address.length <= 10) return address;
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  let formatted = address;
+  try {
+    if (isAddress(address)) {
+      formatted = getAddress(address);
+    }
+  } catch {
+    // Keep raw string if checksum conversion fails
+  }
+  if (formatted.length <= 10) return formatted;
+  return `${formatted.slice(0, 6)}...${formatted.slice(-4)}`;
 }
 
 export function formatPaymentId(id?: string | null): string {

@@ -1,19 +1,25 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { createPublicClient, http, formatEther, isAddress } from 'viem';
+import { foundry } from 'viem/chains';
 import { Header } from '@/components/dashboard/Header';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { merchantApi } from '@/lib/api/merchant';
 import { MerchantWallet } from '@/types';
 import { useWallet } from '@/hooks/use-wallet';
 import { formatAddress } from '@/lib/formatters';
-import { Wallet, ShieldCheck, ArrowUpRight, Lock, AlertTriangle, RefreshCw } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Wallet, ArrowUpRight, Lock, RefreshCw, Copy, Check } from 'lucide-react';
 
 export default function WalletPage() {
   const [wallets, setWallets] = useState<MerchantWallet[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const { account, connect, switchNetwork, isWrongNetwork } = useWallet();
+  const [copied, setCopied] = useState<boolean>(false);
+  const [balance, setBalance] = useState<string>('0.0000');
+  const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
+  const { account, connect } = useWallet();
 
   const fetchWallets = async () => {
     setLoading(true);
@@ -33,6 +39,43 @@ export default function WalletPage() {
 
   const activeWallet = wallets[0];
   const displayAddress = activeWallet?.address || account.address;
+
+  const handleCopy = () => {
+    if (displayAddress) {
+      navigator.clipboard.writeText(displayAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const fetchAnvilBalance = useCallback(async (addr: string) => {
+    if (!addr || !isAddress(addr)) return;
+    setBalanceLoading(true);
+    try {
+      const publicClient = createPublicClient({
+        chain: foundry,
+        transport: http('http://127.0.0.1:8545'),
+      });
+      const balanceWei = await publicClient.getBalance({ address: addr as `0x${string}` });
+      const formattedEth = formatEther(balanceWei);
+      const numEth = parseFloat(formattedEth);
+      setBalance(numEth.toFixed(4));
+    } catch (err) {
+      if (account.balanceEth) {
+        setBalance(account.balanceEth);
+      } else {
+        setBalance('0.0000');
+      }
+    } finally {
+      setBalanceLoading(false);
+    }
+  }, [account.balanceEth]);
+
+  useEffect(() => {
+    if (displayAddress) {
+      fetchAnvilBalance(displayAddress);
+    }
+  }, [displayAddress, fetchAnvilBalance]);
 
   return (
     <div className="space-y-8 pb-12">
@@ -68,7 +111,20 @@ export default function WalletPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
               <div className="space-y-1">
                 <span className="text-[#888888] uppercase tracking-wider text-[10px]">Address</span>
-                <p className="font-semibold text-[#171717]">{formatAddress(displayAddress)}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-[#171717]">{formatAddress(displayAddress)}</p>
+                  <button
+                    onClick={handleCopy}
+                    className="inline-flex items-center gap-1 p-1 text-[#888888] hover:text-[#171717] hover:bg-[#ebebeb]/50 rounded transition-colors"
+                    title={copied ? 'Copied!' : 'Copy full address'}
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 <span className="text-[#888888] uppercase tracking-wider text-[10px]">Network</span>
@@ -91,16 +147,34 @@ export default function WalletPage() {
 
         {/* Private Balance & Withdrawal Section */}
         <Card className="p-6 space-y-6">
-          <CardHeader className="px-0 pt-0">
-            <CardTitle>Private Balance</CardTitle>
-            <CardDescription>
-              Accumulated settled payments in zkBob pool
-            </CardDescription>
+          <CardHeader className="px-0 pt-0 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Private Balance</CardTitle>
+              <CardDescription>
+                Accumulated settled payments in zkBob pool & wallet balance on Anvil
+              </CardDescription>
+            </div>
+            {displayAddress && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fetchAnvilBalance(displayAddress)}
+                disabled={balanceLoading}
+                className="h-8 w-8 p-0 text-[#888888] hover:text-[#171717]"
+                title="Refresh balance from Anvil"
+              >
+                <RefreshCw className={cn("h-4 w-4", balanceLoading && "animate-spin")} />
+              </Button>
+            )}
           </CardHeader>
 
           <div className="flex items-baseline gap-3">
             <span className="text-4xl font-extrabold tracking-tight font-mono text-[#171717]">
-              0.72
+              {balanceLoading ? (
+                <span className="text-2xl text-[#888888]">Fetching...</span>
+              ) : (
+                balance
+              )}
             </span>
             <span className="text-lg font-mono font-semibold text-[#888888]">ETH</span>
           </div>
