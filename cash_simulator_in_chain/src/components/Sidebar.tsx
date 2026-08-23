@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { WalletNode, WalletCluster } from '../types/bubble';
 import { shortenAddress, formatNumber, formatPercent } from '../utils/formatters';
-import { Users, Layers, ExternalLink, ChevronRight, Search, X } from 'lucide-react';
+import { Users, Layers, ExternalLink, ChevronRight, Search, X, Copy, Check } from 'lucide-react';
 
 interface SidebarProps {
   nodes: WalletNode[];
@@ -22,6 +22,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'holders' | 'clusters'>('holders');
   const [filterQuery, setFilterQuery] = useState('');
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+
+  const handleCopyAddress = (e: React.MouseEvent, address: string) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(address);
+    setCopiedAddress(address);
+    setTimeout(() => {
+      setCopiedAddress(prev => (prev === address ? null : prev));
+    }, 1500);
+  };
 
   // Sorted nodes by wealth rank
   const sortedNodes = [...nodes].sort((a, b) => b.balance - a.balance);
@@ -94,19 +104,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {filteredHolders.map(node => {
                 const cluster = getClusterForWallet(node.clusterId);
                 const isSelected = selectedWalletId === node.id;
+                const isCopied = copiedAddress === node.id;
 
                 return (
                   <div
                     key={node.id}
                     onClick={() => onSelectWallet(isSelected ? null : node.id)}
-                    className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 ${
+                    className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between gap-2 group ${
                       isSelected
                         ? 'bg-cyan-950/40 border-cyan-500/80 shadow-md shadow-cyan-500/10'
                         : 'bg-slate-900/40 border-slate-800/60 hover:bg-slate-800/60 hover:border-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[11px] font-mono text-slate-400 w-5 font-semibold">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-[11px] font-mono text-slate-400 w-5 font-semibold shrink-0">
                         #{node.rank}
                       </span>
 
@@ -119,9 +130,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }}
                       />
 
-                      <div className="min-w-0">
-                        <div className="text-xs font-mono font-medium text-slate-200 truncate">
-                          {node.label || shortenAddress(node.id, 4)}
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs font-mono font-medium text-slate-200 truncate flex items-center gap-1">
+                          <span>{node.label || shortenAddress(node.id, 4)}</span>
                         </div>
                         {node.label && (
                           <div className="text-[10px] text-slate-400 font-mono">
@@ -131,13 +142,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <div className="text-xs font-bold text-emerald-400 font-mono">
-                        {formatNumber(node.balance)}
+                    <div className="text-right shrink-0 flex items-center gap-2">
+                      <div>
+                        <div className="text-xs font-bold text-emerald-400 font-mono">
+                          {formatNumber(node.balance)}
+                        </div>
+                        <div className="text-[10px] text-amber-400 font-bold font-mono">
+                          {formatPercent(node.percentage)}
+                        </div>
                       </div>
-                      <div className="text-[10px] text-amber-400 font-bold font-mono">
-                        {formatPercent(node.percentage)}
-                      </div>
+
+                      <button
+                        onClick={e => handleCopyAddress(e, node.id)}
+                        className="p-1 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/90 transition shrink-0"
+                        title={`Copy ${node.label ? node.label + ' ' : ''}address (${node.id})`}
+                      >
+                        {isCopied ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100" />
+                        )}
+                      </button>
                     </div>
                   </div>
                 );
