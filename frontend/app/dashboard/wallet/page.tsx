@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { createPublicClient, http, formatEther, isAddress } from 'viem';
-import { foundry } from 'viem/chains';
+import { isAddress } from 'viem';
 import { Header } from '@/components/dashboard/Header';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -11,14 +10,18 @@ import { MerchantWallet } from '@/types';
 import { useWallet } from '@/hooks/use-wallet';
 import { formatAddress } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
-import { Wallet, ArrowUpRight, Lock, RefreshCw, Copy, Check } from 'lucide-react';
+import { Wallet, ArrowUpRight, Shield, RefreshCw, Copy, Check, ExternalLink } from 'lucide-react';
 
 export default function WalletPage() {
   const [wallets, setWallets] = useState<MerchantWallet[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
-  const [balance, setBalance] = useState<string>('0.0000');
-  const [balanceLoading, setBalanceLoading] = useState<boolean>(false);
+  const [poolBalance, setPoolBalance] = useState<string>('0.000000');
+  const [poolBalanceLoading, setPoolBalanceLoading] = useState<boolean>(false);
+  const [withdrawAmount, setWithdrawAmount] = useState<string>('');
+  const [withdrawLoading, setWithdrawLoading] = useState<boolean>(false);
+  const [withdrawResult, setWithdrawResult] = useState<{ txHash: string; amountEth: string } | null>(null);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const { account, connect } = useWallet();
 
   const fetchWallets = async () => {
@@ -33,9 +36,24 @@ export default function WalletPage() {
     }
   };
 
+  const fetchPoolBalance = useCallback(async () => {
+    setPoolBalanceLoading(true);
+    try {
+      const res = await merchantApi.getPoolBalance();
+      setPoolBalance(res.balanceEth);
+      setWithdrawAmount(res.balanceEth);
+    } catch (err) {
+      console.error('Failed to fetch pool balance', err);
+      setPoolBalance('0.000000');
+    } finally {
+      setPoolBalanceLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchWallets();
-  }, []);
+    fetchPoolBalance();
+  }, [fetchPoolBalance]);
 
   const activeWallet = wallets[0];
   const displayAddress = activeWallet?.address || account.address;
@@ -48,34 +66,37 @@ export default function WalletPage() {
     }
   };
 
-  const fetchAnvilBalance = useCallback(async (addr: string) => {
-    if (!addr || !isAddress(addr)) return;
-    setBalanceLoading(true);
-    try {
-      const publicClient = createPublicClient({
-        chain: foundry,
-        transport: http('http://127.0.0.1:8545'),
-      });
-      const balanceWei = await publicClient.getBalance({ address: addr as `0x${string}` });
-      const formattedEth = formatEther(balanceWei);
-      const numEth = parseFloat(formattedEth);
-      setBalance(numEth.toFixed(4));
-    } catch (err) {
-      if (account.balanceEth) {
-        setBalance(account.balanceEth);
-      } else {
-        setBalance('0.0000');
-      }
-    } finally {
-      setBalanceLoading(false);
-    }
-  }, [account.balanceEth]);
+  const handleWithdraw = async () => {
+    setWithdrawError(null);
+    setWithdrawResult(null);
+    setWithdrawLoading(true);
 
-  useEffect(() => {
-    if (displayAddress) {
-      fetchAnvilBalance(displayAddress);
+    const amount = parseFloat(withdrawAmount);
+    if (!withdrawAmount || isNaN(amount) || amount <= 0) {
+      setWithdrawError('Please enter a valid amount greater than 0.');
+      setWithdrawLoading(false);
+      return;
     }
-  }, [displayAddress, fetchAnvilBalance]);
+    if (amount > parseFloat(poolBalance)) {
+      setWithdrawError('Withdrawal amount exceeds the pool balance.');
+      setWithdrawLoading(false);
+      return;
+    }
+
+    try {
+      const result = await merchantApi.withdraw(withdrawAmount);
+      setWithdrawResult({ txHash: result.txHash, amountEth: result.amountEth });
+      // Refresh pool balance after successful withdrawal
+      await fetchPoolBalance();
+    } catch (err: any) {
+      setWithdrawError(err?.message || 'Withdrawal failed. Please try again.');
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
+
+  const poolBalanceNum = parseFloat(poolBalance);
+  const hasBalance = poolBalanceNum > 0;
 
   return (
     <div className="space-y-8 pb-12">
@@ -91,7 +112,7 @@ export default function WalletPage() {
               </div>
               <div>
                 <h3 className="text-base font-bold text-[#171717]">Payout Wallet</h3>
-                <p className="text-xs text-[#888888]">Receives settled zkBob balances</p>
+                <p className="text-xs text-[#888888]">Receives settled zkBob pool balances</p>
               </div>
             </div>
 
@@ -145,54 +166,121 @@ export default function WalletPage() {
           )}
         </Card>
 
-        {/* Private Balance & Withdrawal Section */}
+        {/* zkBob Pool Balance & Withdrawal Section */}
         <Card className="p-6 space-y-6">
           <CardHeader className="px-0 pt-0 flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Private Balance</CardTitle>
+              <CardTitle>zkBob Pool Balance</CardTitle>
               <CardDescription>
-                Accumulated settled payments in zkBob pool & wallet balance on Anvil
+                Accumulated payments held in the PoolVault contract — ready to withdraw
               </CardDescription>
             </div>
-            {displayAddress && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => fetchAnvilBalance(displayAddress)}
-                disabled={balanceLoading}
-                className="h-8 w-8 p-0 text-[#888888] hover:text-[#171717]"
-                title="Refresh balance from Anvil"
-              >
-                <RefreshCw className={cn("h-4 w-4", balanceLoading && "animate-spin")} />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={fetchPoolBalance}
+              disabled={poolBalanceLoading}
+              className="h-8 w-8 p-0 text-[#888888] hover:text-[#171717]"
+              title="Refresh pool balance"
+            >
+              <RefreshCw className={cn('h-4 w-4', poolBalanceLoading && 'animate-spin')} />
+            </Button>
           </CardHeader>
 
           <div className="flex items-baseline gap-3">
             <span className="text-4xl font-extrabold tracking-tight font-mono text-[#171717]">
-              {balanceLoading ? (
+              {poolBalanceLoading ? (
                 <span className="text-2xl text-[#888888]">Fetching...</span>
               ) : (
-                balance
+                poolBalance
               )}
             </span>
             <span className="text-lg font-mono font-semibold text-[#888888]">ETH</span>
           </div>
 
-          <div className="rounded-lg border border-[#ebebeb] bg-[#fafafa] p-4 text-xs space-y-2">
-            <div className="flex items-center gap-2 font-semibold text-[#171717]">
-              <Lock className="h-4 w-4 text-[#0070f3]" />
-              <span>Withdrawal Notice</span>
+          {/* zkBob Info Banner */}
+          <div className="rounded-lg border border-[#0070f3]/20 bg-[#0070f3]/5 p-4 text-xs space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-[#0070f3]">
+              <Shield className="h-4 w-4" />
+              <span>Zero-Knowledge Privacy Pool</span>
             </div>
-            <p className="text-[#888888] leading-relaxed">
-              Withdrawal functionality is coming soon in this local demo. Once enabled, settled funds can be withdrawn directly into your connected payout wallet via zero-knowledge proof exit transactions.
+            <p className="text-[#4d4d4d] leading-relaxed">
+              Payments flow into the <strong>PoolVault</strong> contract on Anvil. The pool operator (your{' '}
+              <code className="bg-[#0070f3]/10 px-1 rounded">PRIVATE_KEY</code>) signs withdrawals and sends
+              ETH directly to your payout wallet via an on-chain transaction.
             </p>
           </div>
 
-          <Button disabled variant="secondary" className="w-full">
-            <ArrowUpRight className="mr-2 h-4 w-4" />
-            <span>Withdraw (Coming Soon in Demo)</span>
-          </Button>
+          {/* Success result */}
+          {withdrawResult && (
+            <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs space-y-2">
+              <p className="font-semibold text-emerald-700">Withdrawal Successful!</p>
+              <p className="text-emerald-600">Amount: <strong>{withdrawResult.amountEth} ETH</strong></p>
+              <div className="flex items-center gap-1 text-emerald-600 font-mono">
+                <span>Tx: {withdrawResult.txHash.slice(0, 20)}...</span>
+                <ExternalLink className="h-3 w-3" />
+              </div>
+            </div>
+          )}
+
+          {/* Error result */}
+          {withdrawError && (
+            <div className="rounded-lg border border-[#ee0000]/20 bg-[#ee0000]/5 p-3 text-xs text-[#ee0000]">
+              {withdrawError}
+            </div>
+          )}
+
+          {/* Withdraw Amount Input + Button */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 relative">
+                <input
+                  type="number"
+                  step="0.000001"
+                  min="0"
+                  max={poolBalance}
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  placeholder="0.000000"
+                  disabled={withdrawLoading || !hasBalance}
+                  className="w-full h-10 px-3 pr-12 font-mono text-sm border border-[#ebebeb] rounded-lg bg-white text-[#171717] placeholder:text-[#aaaaaa] focus:outline-none focus:ring-2 focus:ring-[#0070f3]/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-[#888888]">
+                  ETH
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWithdrawAmount(poolBalance)}
+                disabled={!hasBalance || withdrawLoading}
+                className="text-xs h-10 px-3"
+              >
+                Max
+              </Button>
+            </div>
+
+            <Button
+              onClick={handleWithdraw}
+              isLoading={withdrawLoading}
+              disabled={withdrawLoading || !hasBalance || !displayAddress}
+              className="w-full"
+              variant="primary"
+            >
+              <ArrowUpRight className="mr-2 h-4 w-4" />
+              {!displayAddress
+                ? 'Configure payout wallet first'
+                : !hasBalance
+                  ? 'No balance to withdraw'
+                  : 'Withdraw via zkBob Pool'}
+            </Button>
+
+            {!displayAddress && (
+              <p className="text-[10px] text-[#888888] text-center">
+                Add a payout wallet in Settings → Wallet to enable withdrawals.
+              </p>
+            )}
+          </div>
         </Card>
       </div>
     </div>

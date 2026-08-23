@@ -2,10 +2,16 @@ import { ZkBobProofResult } from './types';
 import { generatePaymentProof } from './proof';
 
 export class ZkBobClient {
+  // Pool address is set dynamically per-payment from session.intent.recipientIdentifier
   private poolAddress: string;
 
-  constructor(poolAddress = '0x1111111111111111111111111111111111111111') {
+  constructor(poolAddress = '') {
     this.poolAddress = poolAddress;
+  }
+
+  /** Update pool address from checkout session intent */
+  setPoolAddress(address: string) {
+    this.poolAddress = address;
   }
 
   async prepareProof(params: {
@@ -22,3 +28,4 @@ export class ZkBobClient {
 }
 
 export const zkbobClient = new ZkBobClient();
+

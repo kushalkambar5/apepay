@@ -25,25 +25,30 @@ export async function checkoutRoutes(fastify: FastifyInstance) {
   /**
    * POST /checkout/:paymentId/submit-tx
    * Public endpoint where customer frontend signals transaction submission.
-   * Does NOT mark payment as paid automatically.
+   * Verifies the tx on-chain against the PoolVault contract before marking as paid.
    */
   fastify.post<{ Params: { paymentId: string } }>('/:paymentId/submit-tx', async (request, reply) => {
     const { paymentId } = request.params;
     const body = submitTxSchema.parse(request.body);
 
-    logger.info({ paymentId, txHash: body.txHash }, 'Customer submitted payment transaction/proof');
+    logger.info({ paymentId, txHash: body.txHash }, 'Customer submitted payment transaction');
 
-    // Trigger verification check (or prioritize in indexer)
     if (body.txHash) {
-      // In local anvil / MVP mode, verify and queue confirmation
+      // Fetch the payment to get the expected amount
+      const session = await paymentService.getCheckoutSession(paymentId);
+
+      // Verify on-chain: receipt must exist, status=success, to=PoolVault, value>=expectedAmount
       const verifyResult = await zkbobService.verifyPayment({
         paymentIdentifier: paymentId,
-        expectedAmount: '0',
+        expectedAmount: session.amount ?? '0',
         txHash: body.txHash,
       });
 
       if (verifyResult.verified) {
         await paymentService.markAsPaid(paymentId, body.txHash);
+        logger.info({ paymentId, txHash: body.txHash }, 'Payment verified and marked as paid');
+      } else {
+        logger.warn({ paymentId, txHash: body.txHash }, 'Transaction verification failed');
       }
     }
 

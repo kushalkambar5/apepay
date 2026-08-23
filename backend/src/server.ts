@@ -14,6 +14,7 @@ import { dashboardMerchantRoutes } from './routes/dashboard/merchant';
 import { dashboardApiKeyRoutes } from './routes/dashboard/apiKeys';
 import { dashboardPaymentRoutes } from './routes/dashboard/payments';
 import { dashboardWebhookRoutes } from './routes/dashboard/webhooks';
+import { dashboardZkBobRoutes } from './routes/dashboard/zkbob';
 
 import { runBlockchainIndexer } from './workers/indexer.worker';
 import { runWebhookWorker } from './workers/webhook.worker';
@@ -67,6 +68,7 @@ async function buildServer() {
   await app.register(dashboardApiKeyRoutes, { prefix: '/dashboard' });
   await app.register(dashboardPaymentRoutes, { prefix: '/dashboard' });
   await app.register(dashboardWebhookRoutes, { prefix: '/dashboard' });
+  await app.register(dashboardZkBobRoutes, { prefix: '/dashboard' });
 
   return app;
 }

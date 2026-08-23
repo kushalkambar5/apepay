@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafafa;
+  --foreground: #171717;
+  --card-bg: #ffffff;
+  --hairline: #ebebeb;
+  --hairline-strong: #a1a1a1;
+  --mute: #888888;
+  --link: #0070f3;
+  --primary: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card-bg);
+  --color-hairline: var(--hairline);
+  --color-primary-ink: var(--primary);
+  --font-sans: Geist, Inter, system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Vercel-inspired stacked card shadows as defined in DESIGN.md */
+.shadow-stacked-sm {
+  box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.03), 0px 2px 2px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-stacked-md {
+  box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.04), 0px 8px 8px -8px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-stacked-lg {
+  box-shadow: 0px 2px 2px rgba(0, 0, 0, 0.04), 0px 8px 16px -4px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-modal {
+  box-shadow: 0px 1px 1px rgba(0, 0, 0, 0.03), 0px 8px 16px -4px rgba(0, 0, 0, 0.08), 0px 24px 32px -8px rgba(0, 0, 0, 0.12);
+}
+
+/* Signature Mesh Gradient as defined in DESIGN.md */
+.mesh-gradient-bg {
+  background: radial-gradient(at 10% 20%, rgba(80, 227, 194, 0.25) 0px, transparent 50%),
+              radial-gradient(at 80% 10%, rgba(121, 40, 202, 0.25) 0px, transparent 50%),
+              radial-gradient(at 40% 70%, rgba(255, 0, 128, 0.20) 0px, transparent 50%),
+              radial-gradient(at 90% 80%, rgba(249, 203, 40, 0.25) 0px, transparent 50%);
+}
+
+.mesh-gradient-border {
+  border-image: linear-gradient(to right, #007cf0, #00dfd8, #7928ca, #ff0080, #ff4d4d, #f9cb28) 1;
+}
+
+/* Monospace element styling */
+.font-mono-tech {
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+/* Negative letter tracking for display text as defined in DESIGN.md */
+.tracking-display-hero {
+  letter-spacing: -2.4px;
+}
+
+.tracking-display-lg {
+  letter-spacing: -1.28px;
+}
+
+.tracking-display-md {
+  letter-spacing: -0.96px;
+}

@@ -246,3 +246,22 @@ export const webhookDeliveriesRelations = relations(webhookDeliveries, ({ one })
     references: [payments.id],
   }),
 }));
+
+// 10. withdrawal_events — records every zkBob pool withdrawal initiated by the operator
+export const withdrawalEvents = pgTable('withdrawal_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  merchantId: uuid('merchant_id').references(() => merchants.id, { onDelete: 'cascade' }),
+  recipientAddress: varchar('recipient_address', { length: 255 }).notNull(),
+  amountEth: numeric('amount_eth').notNull(),
+  txHash: varchar('tx_hash', { length: 255 }),
+  status: varchar('status', { length: 50 }).default('pending').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const withdrawalEventsRelations = relations(withdrawalEvents, ({ one }) => ({
+  merchant: one(merchants, {
+    fields: [withdrawalEvents.merchantId],
+    references: [merchants.id],
+  }),
+}));
+
