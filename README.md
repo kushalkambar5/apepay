@@ -12,6 +12,8 @@
 - **Real-Time Blockchain Indexer**: Background indexer polling local EVM nodes (Anvil) or testnets/mainnet RPCs to automatically monitor and confirm on-chain payments.
 - **Webhook Delivery Engine**: Asynchronous webhook queue worker with HMAC SHA-256 payload signing, response logging, and exponential backoff retries.
 - **Merchant Dashboard**: Built with Next.js 16 (App Router), Tailwind CSS v4, and Lucide React icons for managing payments, API keys, webhook endpoints, and wallet settings.
+- **Demo E-Commerce Merchant Store (`demo_merchant_website`)**: Fully integrated example e-commerce storefront (ApeCommerce) demonstrating product checkout flow, instant redirect to hosted payment session, and an in-app HMAC SHA-256 Webhook Inspector log tool.
+- **On-Chain Cash Flow Simulator & Visualizer (`cash_simulator_in_chain`)**: Interactive D3-force physical bubble visualizer and real-time transaction simulator connecting to local Anvil nodes or pre-loaded datasets to map wallet clusters, transfer flows, and privacy commitment tags.
 
 ---
 
@@ -46,6 +48,15 @@ apepay/
 │   ├── drizzle.config.ts     # Drizzle Kit database configuration
 │   └── package.json          # Backend dependencies & npm scripts
 │
+├── cash_simulator_in_chain/  # D3-Force On-Chain Cash Flow & Wallet Cluster Visualizer
+│   ├── src/
+│   │   ├── components/       # Bubble graph canvas, transaction simulator modal, wallet detail modal
+│   │   ├── data/             # Pre-loaded mock token & cluster datasets (APE, USDT, ETH)
+│   │   ├── services/         # Viem Anvil RPC integration & MetaMask connection services
+│   │   └── utils/            # Clustering algorithms & D3 force simulation physics layout
+│   ├── package.json          # Simulator dependencies (Vite + React 19 + D3-force)
+│   └── README.md             # Cash simulator dedicated documentation
+│
 ├── contracts/                # Foundry Smart Contracts & Local Testnet Scripts
 │   ├── .env                  # Contracts deployment environment configuration
 │   ├── .env.example          # Contracts environment template
@@ -54,7 +65,15 @@ apepay/
 │   ├── foundry.toml          # Foundry setup & compiler settings
 │   └── remappings.txt        # Solidity import remappings
 │
-├── frontend/                 # Next.js 16 App Router Merchant Dashboard & Checkout UI
+├── demo_merchant_website/    # ApeCommerce — Demo E-Commerce Merchant Storefront
+│   ├── .env                  # Demo merchant environment configuration
+│   ├── .env.example          # Demo merchant environment template
+│   ├── app/                  # Storefront pages, cart checkout, webhook API inspector route
+│   ├── components/           # Product catalog, cart drawer, developer configuration modal
+│   ├── package.json          # Demo store dependencies (Next.js 16 + Tailwind CSS v4)
+│   └── README.md             # Demo store dedicated documentation
+│
+├── frontend/                 # Next.js 16 App Router Merchant Dashboard & Hosted Checkout UI
 │   ├── .env                  # Frontend environment configuration
 │   ├── .env.example          # Frontend environment template
 │   ├── app/                  # Next.js App Router Structure
@@ -94,7 +113,17 @@ NEXTAUTH_SECRET=apepay_frontend_secret_key_2026
 NEXTAUTH_URL=http://localhost:3000
 ```
 
-### 3. `contracts/.env`
+### 3. `demo_merchant_website/.env`
+```env
+NEXT_PUBLIC_APEPAY_API_URL=http://localhost:4000
+NEXT_PUBLIC_APEPAY_CHECKOUT_URL=http://localhost:3000
+NEXT_PUBLIC_MERCHANT_API_KEY=ape_live_769de3548d175ad468df920756399af2fe4f6223669b822b
+NEXT_PUBLIC_STORE_URL=http://localhost:3001
+APEPAY_WEBHOOK_SECRET=whsec_52953e169b8eef4914e06b1d819afef4f256deead48f0883
+NEXT_PUBLIC_APEPAY_WEBHOOK_SECRET=whsec_52953e169b8eef4914e06b1d819afef4f256deead48f0883
+```
+
+### 4. `contracts/.env`
 ```env
 ETH_RPC_URL=http://127.0.0.1:8545
 ANVIL_RPC_URL=http://127.0.0.1:8545
@@ -110,7 +139,7 @@ ETHERSCAN_API_KEY=
 ApePay bridges off-chain merchant workflows with on-chain privacy protection:
 
 ```
-[ Merchant App / Store ]
+[ Demo E-Commerce Store / Merchant App ]
        │
   1. POST /v1/payments (API Key)
        ▼
@@ -122,7 +151,7 @@ ApePay bridges off-chain merchant workflows with on-chain privacy protection:
        │
   4. Customer pays ETH / ERC20 to zkBob Pool
        ▼
- [ Anvil / EVM Blockchain ]
+ [ Anvil / EVM Blockchain ] ◄──── [ On-Chain Cash Flow Simulator ] (Real-time D3 Visualizer)
        │
   5. Polling Block Data via Viem
        ▼
@@ -130,24 +159,25 @@ ApePay bridges off-chain merchant workflows with on-chain privacy protection:
        │
   7. Enqueue Event
        ▼
- [ Webhook Delivery Worker ] ─── 8. HMAC Signed Webhook POST ──► [ Merchant Webhook Endpoint ]
+ [ Webhook Delivery Worker ] ─── 8. HMAC Signed Webhook POST ──► [ Demo Store Webhook Inspector ]
 ```
 
 ### Payment Lifecycle Details:
 
-1. **Payment Creation**: Merchant creates a payment request via `POST /v1/payments` specifying amount, currency, and optional metadata/idempotency key using their `x-api-key`.
+1. **Payment Creation**: Merchant app / Demo store creates a payment request via `POST /v1/payments` specifying amount, currency, and optional metadata/idempotency key using their `x-api-key`.
 2. **Privacy Intent Generation**: `zkbobService` produces a privacy payment intent, assigning a unique SHA-256 commitment note (`zkbob_note_<paymentId>_<nonce>`) linked to the zkBob pool recipient identifier.
 3. **Hosted Checkout Session**: Customer opens `/p/:paymentId` on the frontend. The checkout page fetches session details via public `GET /checkout/:paymentId` and displays payment amounts and commitment information.
 4. **Transaction Submission & Verification**: When the customer submits the transaction, the background `runBlockchainIndexer` scanner continuously queries the EVM network via Viem.
 5. **Confirmation & Event Logging**: Once confirmed, `paymentService.markAsPaid()` updates payment status to `paid`, creates a `payment.paid` event record, and triggers the webhook pipeline.
-6. **Webhook Notification**: `runWebhookWorker` delivers an HMAC SHA-256 signed JSON payload (`sha256=...`) to the merchant's registered webhook URL with exponential retry logic on failure.
+6. **Webhook Notification**: `runWebhookWorker` delivers an HMAC SHA-256 signed JSON payload (`sha256=...`) to the merchant's registered webhook URL (e.g. `/api/webhooks/apepay` in the Demo Storefront) with exponential retry logic on failure.
+7. **Cash Flow Visualization**: Optional tracking of transaction flow and wallet clusters using `cash_simulator_in_chain` connected to Anvil RPC.
 
 ---
 
 ## 📋 System Requirements
 
 - **Node.js**: v18.0.0 or higher (v20+ recommended)
-- **Package Manager**: `npm` (v9+) or `pnpm` / `bun` / `yarn`
+- **Package Manager**: `npm` (v9+) or `pnpm` / `yarn` / `bun`
 - **Database**: PostgreSQL (v14+) running locally or via Docker
 - **Blockchain Toolchain**: [Foundry](https://getfoundry.sh/) (`anvil`, `forge`, `cast`) installed locally
 - **Tunneling (Optional for local testing)**: `ngrok` or `cloudflared` to expose the backend server (`http://localhost:4000`) for receiving remote webhook calls.
@@ -209,7 +239,7 @@ npm run dev
 
 ---
 
-### 4. Frontend Setup & Run
+### 4. Frontend Setup & Run (Merchant Dashboard & Hosted Checkout)
 
 1. Navigate to frontend directory and install dependencies:
 ```bash
@@ -225,7 +255,39 @@ npm run dev
 
 ---
 
-### 5. Exposing Backend for Webhooks (Optional Demo Setup)
+### 5. Demo Merchant Storefront Setup & Run (`demo_merchant_website`)
+
+1. Navigate to `demo_merchant_website` directory and install dependencies:
+```bash
+cd demo_merchant_website
+npm install
+```
+
+2. Start Next.js storefront development server:
+```bash
+npm run dev
+```
+*Demo E-Commerce Store will run at `http://localhost:3001`*
+
+---
+
+### 6. On-Chain Cash Flow Simulator Setup & Run (`cash_simulator_in_chain`)
+
+1. Navigate to `cash_simulator_in_chain` directory and install dependencies:
+```bash
+cd cash_simulator_in_chain
+npm install
+```
+
+2. Start Vite development server:
+```bash
+npm run dev
+```
+*Cash Simulator Visualizer will run at `http://localhost:5173`*
+
+---
+
+### 7. Exposing Backend for Webhooks (Optional Demo Setup)
 
 If testing merchant webhook delivery locally using `ngrok`:
 ```bash
@@ -237,9 +299,11 @@ Update `BACKEND_URI` in `backend/.env` with your public ngrok URL.
 
 ## 🛠 Tech Stack Overview
 
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Lucide React, NextAuth.js
-- **Backend Framework**: Fastify v5, TypeScript, Pino (Logging), Zod (Validation), Viem (Ethereum RPC)
+- **Merchant Dashboard & Hosted Checkout (`frontend`)**: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Lucide React, NextAuth.js
+- **Demo Storefront (`demo_merchant_website`)**: Next.js 16 (App Router), Tailwind CSS v4, TypeScript, Webhook Inspector API
+- **Cash Flow Visualizer (`cash_simulator_in_chain`)**: Vite, React 19, TypeScript, D3-force (`d3-force`), Viem, Tailwind CSS v4
+- **Backend Framework (`backend`)**: Fastify v5, TypeScript, Pino (Logging), Zod (Validation), Viem (Ethereum RPC)
 - **Database & ORM**: PostgreSQL, Drizzle ORM, Drizzle Kit
-- **Smart Contracts**: Solidity ^0.8.15, Foundry Toolchain (Forge, Anvil, Cast)
+- **Smart Contracts (`contracts`)**: Solidity ^0.8.15, Foundry Toolchain (Forge, Anvil, Cast)
 - **Privacy Layer**: zkBob commitment note generation adapter (`PrivacyPaymentProtocol`)
 - **Testing**: Vitest
