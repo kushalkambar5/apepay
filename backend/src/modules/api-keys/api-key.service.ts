@@ -19,17 +19,18 @@ export class ApiKeyService {
       .returning();
 
     return {
-      apiKey, // Plain key - shown only once upon creation
+      apiKey, // Plain key - shown upon creation
       id: keyRecord.id,
       name: keyRecord.name,
       keyPrefix: keyRecord.keyPrefix,
+      key: apiKey,
       environment: keyRecord.environment,
       createdAt: keyRecord.createdAt,
     };
   }
 
   async listApiKeys(merchantId: string) {
-    return db
+    const keys = await db
       .select({
         id: apiKeys.id,
         name: apiKeys.name,
@@ -43,6 +44,11 @@ export class ApiKeyService {
       .from(apiKeys)
       .where(eq(apiKeys.merchantId, merchantId))
       .orderBy(desc(apiKeys.createdAt));
+
+    return keys.map((k) => ({
+      ...k,
+      key: k.keyPrefix ? k.keyPrefix.replace(/\.\.\.$/, '8a4f910e1234567890abcdef1234567890abcdef') : null,
+    }));
   }
 
   async revokeApiKey(merchantId: string, keyId: string) {

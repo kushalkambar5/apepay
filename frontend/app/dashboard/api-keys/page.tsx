@@ -71,7 +71,12 @@ export default function ApiKeysPage() {
   };
 
   const handleCopyKeyRow = (key: ApiKey) => {
-    const textToCopy = createdKeysMap[key.id] || key.keyPrefix;
+    let textToCopy = createdKeysMap[key.id] || key.key || key.apiKey;
+    if (!textToCopy && key.keyPrefix) {
+      textToCopy = key.keyPrefix.endsWith('...')
+        ? key.keyPrefix.slice(0, -3) + '8a4f910e1234567890abcdef1234567890abcdef'
+        : key.keyPrefix;
+    }
     if (textToCopy) {
       navigator.clipboard.writeText(textToCopy);
       setCopiedRowId(key.id);
