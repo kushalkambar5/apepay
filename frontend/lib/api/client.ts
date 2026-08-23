@@ -41,7 +41,7 @@ export async function apiRequest<T>(
   const { useAuth = true, headers: customHeaders, ...customOptions } = options;
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(customOptions.body ? { 'Content-Type': 'application/json' } : {}),
     ...(customHeaders as Record<string, string>),
   };
 

@@ -27,6 +27,20 @@ async function buildServer() {
     });
     // Global Error Handler
     app.setErrorHandler(errorHandler);
+    // Allow empty JSON bodies without throwing Fastify FST_ERR_CTP_EMPTY_JSON_BODY error
+    app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+        if (!body || body.trim() === '') {
+            done(null, null);
+            return;
+        }
+        try {
+            const json = JSON.parse(body);
+            done(null, json);
+        }
+        catch (err) {
+            done(err, undefined);
+        }
+    });
     // Health check route
     app.get('/health', async () => {
         return { status: 'ok', service: 'ApePay API', timestamp: new Date() };

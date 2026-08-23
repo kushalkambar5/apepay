@@ -8,23 +8,37 @@ export function errorHandler(
   request: FastifyRequest,
   reply: FastifyReply
 ): void {
-  if (error instanceof AppError) {
-    reply.status(error.statusCode).send({
+  // AppError or any duck-typed Application Error (has statusCode & code properties)
+  const isAppError =
+    error instanceof AppError ||
+    (typeof (error as any)?.statusCode === 'number' && typeof (error as any)?.code === 'string');
+
+  if (isAppError) {
+    const statusCode = (error as any).statusCode || 500;
+    const code = (error as any).code || 'INTERNAL_SERVER_ERROR';
+    reply.status(statusCode).send({
       error: {
-        code: error.code,
-        message: error.message,
+        code,
+        message: error.message || 'Application error',
       },
     });
     return;
   }
 
-  if (error instanceof ZodError) {
+  // ZodError or duck-typed Zod error (has issues array)
+  const isZodError =
+    error instanceof ZodError ||
+    error.name === 'ZodError' ||
+    (Array.isArray((error as any)?.issues) && (error as any)?.name === 'ZodError');
+
+  if (isZodError) {
+    const issues = (error as any).issues || [];
     reply.status(400).send({
       error: {
         code: 'VALIDATION_ERROR',
         message: 'Invalid request payload',
-        details: error.issues.map((issue) => ({
-          path: issue.path.join('.'),
+        details: issues.map((issue: any) => ({
+          path: Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path || ''),
           message: issue.message,
         })),
       },

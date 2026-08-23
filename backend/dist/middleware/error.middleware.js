@@ -2,22 +2,32 @@ import { ZodError } from 'zod';
 import { AppError } from '../lib/errors';
 import { logger } from '../lib/logger';
 export function errorHandler(error, request, reply) {
-    if (error instanceof AppError) {
-        reply.status(error.statusCode).send({
+    // AppError or any duck-typed Application Error (has statusCode & code properties)
+    const isAppError = error instanceof AppError ||
+        (typeof error?.statusCode === 'number' && typeof error?.code === 'string');
+    if (isAppError) {
+        const statusCode = error.statusCode || 500;
+        const code = error.code || 'INTERNAL_SERVER_ERROR';
+        reply.status(statusCode).send({
             error: {
-                code: error.code,
-                message: error.message,
+                code,
+                message: error.message || 'Application error',
             },
         });
         return;
     }
-    if (error instanceof ZodError) {
+    // ZodError or duck-typed Zod error (has issues array)
+    const isZodError = error instanceof ZodError ||
+        error.name === 'ZodError' ||
+        (Array.isArray(error?.issues) && error?.name === 'ZodError');
+    if (isZodError) {
+        const issues = error.issues || [];
         reply.status(400).send({
             error: {
                 code: 'VALIDATION_ERROR',
                 message: 'Invalid request payload',
-                details: error.issues.map((issue) => ({
-                    path: issue.path.join('.'),
+                details: issues.map((issue) => ({
+                    path: Array.isArray(issue.path) ? issue.path.join('.') : String(issue.path || ''),
                     message: issue.message,
                 })),
             },
