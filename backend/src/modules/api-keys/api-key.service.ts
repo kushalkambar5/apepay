@@ -14,6 +14,7 @@ export class ApiKeyService {
         name: name || `${environment.toUpperCase()} Key`,
         keyPrefix,
         keyHash,
+        key: apiKey,
         environment,
       })
       .returning();
@@ -23,18 +24,19 @@ export class ApiKeyService {
       id: keyRecord.id,
       name: keyRecord.name,
       keyPrefix: keyRecord.keyPrefix,
-      key: apiKey,
+      key: keyRecord.key || apiKey,
       environment: keyRecord.environment,
       createdAt: keyRecord.createdAt,
     };
   }
 
   async listApiKeys(merchantId: string) {
-    const keys = await db
+    return db
       .select({
         id: apiKeys.id,
         name: apiKeys.name,
         keyPrefix: apiKeys.keyPrefix,
+        key: apiKeys.key,
         environment: apiKeys.environment,
         lastUsedAt: apiKeys.lastUsedAt,
         expiresAt: apiKeys.expiresAt,
@@ -44,11 +46,6 @@ export class ApiKeyService {
       .from(apiKeys)
       .where(eq(apiKeys.merchantId, merchantId))
       .orderBy(desc(apiKeys.createdAt));
-
-    return keys.map((k) => ({
-      ...k,
-      key: k.keyPrefix ? k.keyPrefix.replace(/\.\.\.$/, '8a4f910e1234567890abcdef1234567890abcdef') : null,
-    }));
   }
 
   async revokeApiKey(merchantId: string, keyId: string) {

@@ -76,6 +76,7 @@ export const apiKeys = pgTable('api_keys', {
   name: varchar('name', { length: 255 }),
   keyPrefix: varchar('key_prefix', { length: 255 }),
   keyHash: text('key_hash'),
+  key: text('key'),
   environment: apiKeyEnvironmentEnum('environment').default('test'),
   lastUsedAt: timestamp('last_used_at'),
   expiresAt: timestamp('expires_at'),
