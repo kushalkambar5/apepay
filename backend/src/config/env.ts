@@ -14,7 +14,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   // zkBob pool operator — matches PRIVATE_KEY in contracts/.env
   OPERATOR_PRIVATE_KEY: z.string().default('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'),
-  POOL_VAULT_ADDRESS: z.string().default('0x5FbDB2315678afecb367f032d93F642f64180aa3'),
+  POOL_VAULT_ADDRESS: z.string().default('0x8A791620dd6260079BF849Dc5567aDC3F2FdC318'),
 });
 
 export const env = envSchema.parse(process.env);
