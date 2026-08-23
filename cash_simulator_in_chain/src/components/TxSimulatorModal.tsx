@@ -1,33 +1,36 @@
 import React, { useState } from 'react';
 import { WalletNode } from '../types/bubble';
 import { shortenAddress, formatNumber } from '../utils/formatters';
-import { X, Send, Sparkles, AlertCircle } from 'lucide-react';
+import { X, Send, AlertCircle, Loader2 } from 'lucide-react';
 
 interface TxSimulatorModalProps {
+  isAnvilMode: boolean;
   nodes: WalletNode[];
-  onExecuteTx: (senderId: string, receiverId: string, amount: number) => void;
+  onExecuteTx: (senderId: string, receiverId: string, amount: number) => Promise<void> | void;
   onClose: () => void;
 }
 
 export const TxSimulatorModal: React.FC<TxSimulatorModalProps> = ({
+  isAnvilMode,
   nodes,
   onExecuteTx,
   onClose
 }) => {
   const [senderId, setSenderId] = useState(nodes[0]?.id || '');
   const [receiverId, setReceiverId] = useState(nodes[1]?.id || '');
-  const [amount, setAmount] = useState<number>(500000);
+  const [amount, setAmount] = useState<number>(10);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const senderNode = nodes.find(n => n.id === senderId);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!senderId || !receiverId) {
       setError('Please select both sender and receiver wallets.');
       return;
     }
-    if (senderId === receiverId) {
+    if (senderId.toLowerCase() === receiverId.toLowerCase()) {
       setError('Sender and receiver must be different wallets.');
       return;
     }
@@ -35,13 +38,17 @@ export const TxSimulatorModal: React.FC<TxSimulatorModalProps> = ({
       setError('Transfer amount must be greater than 0.');
       return;
     }
-    if (senderNode && amount > senderNode.balance) {
-      setError(`Sender balance insufficient (Max: ${formatNumber(senderNode.balance)}).`);
-      return;
-    }
 
-    onExecuteTx(senderId, receiverId, amount);
-    onClose();
+    try {
+      setLoading(true);
+      setError(null);
+      await onExecuteTx(senderId, receiverId, amount);
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || 'Transaction failed on Anvil RPC.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,13 +61,20 @@ export const TxSimulatorModal: React.FC<TxSimulatorModalProps> = ({
               <Send className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-100">On-Chain Tx Simulator</h2>
-              <p className="text-[11px] text-slate-400">Simulate wallet fund transfers live</p>
+              <h2 className="text-sm font-bold text-slate-100">
+                {isAnvilMode ? 'Send Live Anvil ETH' : 'Simulate Tx'}
+              </h2>
+              <p className="text-[11px] text-slate-400">
+                {isAnvilMode
+                  ? 'Broadcasts real ETH transaction on http://127.0.0.1:8545'
+                  : 'Simulate wallet fund transfers'}
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            disabled={loading}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-50"
           >
             <X className="w-4 h-4" />
           </button>
@@ -86,6 +100,7 @@ export const TxSimulatorModal: React.FC<TxSimulatorModalProps> = ({
                 setSenderId(e.target.value);
                 setError(null);
               }}
+              disabled={loading}
               className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs font-mono rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500"
             >
               {nodes.map(n => (
@@ -107,6 +122,7 @@ export const TxSimulatorModal: React.FC<TxSimulatorModalProps> = ({
                 setReceiverId(e.target.value);
                 setError(null);
               }}
+              disabled={loading}
               className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs font-mono rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500"
             >
               {nodes.map(n => (
@@ -120,15 +136,17 @@ export const TxSimulatorModal: React.FC<TxSimulatorModalProps> = ({
           {/* Amount */}
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Transfer Token Amount
+              Transfer Amount {isAnvilMode ? '(ETH)' : '(Tokens)'}
             </label>
             <input
               type="number"
               value={amount}
+              step="any"
               onChange={e => {
                 setAmount(parseFloat(e.target.value) || 0);
                 setError(null);
               }}
+              disabled={loading}
               className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs font-mono rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500"
               placeholder="Enter transfer amount"
             />
@@ -138,15 +156,18 @@ export const TxSimulatorModal: React.FC<TxSimulatorModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              disabled={loading}
+              className="px-4 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg shadow-orange-500/20 transition"
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-lg shadow-orange-500/20 transition disabled:opacity-50"
             >
-              Broadcast Transfer & Update Graph
+              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              <span>{isAnvilMode ? 'Broadcast on Anvil Node' : 'Broadcast Transfer'}</span>
             </button>
           </div>
         </form>

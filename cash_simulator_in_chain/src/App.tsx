@@ -1,7 +1,14 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { TOKEN_DATASETS } from './data/mockTokens';
 import { computeClusters } from './utils/clustering';
 import { WalletNode, TransferLink, TokenInfo } from './types/bubble';
+import {
+  getAnvilStatus,
+  fetchLiveAnvilData,
+  sendAnvilTransaction,
+  publicClient,
+  AnvilStatus
+} from './services/anvilService';
 
 import { Header } from './components/Header';
 import { StatsOverview } from './components/StatsOverview';
@@ -11,15 +18,19 @@ import { WalletDetailModal } from './components/WalletDetailModal';
 import { TxSimulatorModal } from './components/TxSimulatorModal';
 
 export const App: React.FC = () => {
+  // Mode selection: Live Anvil RPC vs Simulated Dataset
+  const [isAnvilMode, setIsAnvilMode] = useState<boolean>(true);
+  const [anvilStatus, setAnvilStatus] = useState<AnvilStatus>({ isConnected: false, blockNumber: 0 });
+
   const [selectedTokenKey, setSelectedTokenKey] = useState<string>('APE');
 
-  // Token dataset state
+  // Active dataset state
   const currentDataset = TOKEN_DATASETS[selectedTokenKey] || TOKEN_DATASETS['APE'];
   const [tokenInfo, setTokenInfo] = useState<TokenInfo>(currentDataset.token);
   const [nodes, setNodes] = useState<WalletNode[]>(currentDataset.nodes);
   const [links, setLinks] = useState<TransferLink[]>(currentDataset.links);
 
-  // Filters & selection state
+  // Filter & selection state
   const [searchKeyword, setSearchKeyword] = useState<string>('');
   const [hideUnclustered, setHideUnclustered] = useState<boolean>(false);
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
@@ -28,19 +39,86 @@ export const App: React.FC = () => {
   // Modals state
   const [isTxSimulatorOpen, setIsTxSimulatorOpen] = useState<boolean>(false);
 
-  // When switching tokens, reset state
-  const handleSelectTokenKey = (key: string) => {
-    setSelectedTokenKey(key);
-    const ds = TOKEN_DATASETS[key] || TOKEN_DATASETS['APE'];
-    setTokenInfo(ds.token);
-    setNodes(ds.nodes);
-    setLinks(ds.links);
+  // Fetch live Anvil data
+  const loadAnvilData = useCallback(async () => {
+    const status = await getAnvilStatus();
+    setAnvilStatus(status);
+
+    if (status.isConnected) {
+      try {
+        const live = await fetchLiveAnvilData();
+        setTokenInfo(live.tokenInfo);
+        setNodes(live.nodes);
+        setLinks(live.links);
+      } catch (err) {
+        console.error('Failed to load Anvil RPC data:', err);
+      }
+    }
+  }, []);
+
+  // Poll Anvil connection status & subscribe to blocks
+  useEffect(() => {
+    loadAnvilData();
+
+    // Check status every 3 seconds
+    const intervalId = setInterval(async () => {
+      const status = await getAnvilStatus();
+      setAnvilStatus(status);
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [loadAnvilData]);
+
+  // Watch for new Anvil blocks when in Anvil Mode
+  useEffect(() => {
+    if (!isAnvilMode) return;
+
+    let unwatch: (() => void) | undefined;
+    try {
+      unwatch = publicClient.watchBlocks({
+        onBlock: () => {
+          loadAnvilData();
+        },
+      });
+    } catch {
+      // Fallback
+    }
+
+    return () => {
+      if (unwatch) unwatch();
+    };
+  }, [isAnvilMode, loadAnvilData]);
+
+  // Toggle between Anvil Live mode & Simulated datasets
+  const handleToggleAnvilMode = (useAnvil: boolean) => {
+    setIsAnvilMode(useAnvil);
     setSelectedWalletId(null);
     setSelectedClusterId(null);
-    setSearchKeyword('');
+
+    if (useAnvil) {
+      loadAnvilData();
+    } else {
+      const ds = TOKEN_DATASETS[selectedTokenKey] || TOKEN_DATASETS['APE'];
+      setTokenInfo(ds.token);
+      setNodes(ds.nodes);
+      setLinks(ds.links);
+    }
   };
 
-  // Re-compute graph clusters dynamically
+  // Switch token preset in simulated mode
+  const handleSelectTokenKey = (key: string) => {
+    setSelectedTokenKey(key);
+    if (!isAnvilMode) {
+      const ds = TOKEN_DATASETS[key] || TOKEN_DATASETS['APE'];
+      setTokenInfo(ds.token);
+      setNodes(ds.nodes);
+      setLinks(ds.links);
+      setSelectedWalletId(null);
+      setSelectedClusterId(null);
+    }
+  };
+
+  // Dynamically compute clusters
   const { clusters, updatedNodes } = useMemo(() => {
     return computeClusters(nodes, links, tokenInfo.totalSupply);
   }, [nodes, links, tokenInfo.totalSupply]);
@@ -57,45 +135,57 @@ export const App: React.FC = () => {
     return clusters.find(c => c.id === selectedWalletNode.clusterId) || null;
   }, [selectedWalletNode, clusters]);
 
-  // Execute Simulated Transaction
-  const handleExecuteTx = useCallback((senderId: string, receiverId: string, amount: number) => {
-    setNodes(prevNodes => {
-      return prevNodes.map(node => {
-        if (node.id === senderId) {
-          const newBal = Math.max(0, node.balance - amount);
-          const newPct = (newBal / tokenInfo.totalSupply) * 100;
-          return { ...node, balance: newBal, percentage: parseFloat(newPct.toFixed(2)) };
-        }
-        if (node.id === receiverId) {
-          const newBal = node.balance + amount;
-          const newPct = (newBal / tokenInfo.totalSupply) * 100;
-          return { ...node, balance: newBal, percentage: parseFloat(newPct.toFixed(2)) };
-        }
-        return node;
-      });
-    });
+  // Execute Transaction (Live Anvil RPC or Local Simulation)
+  const handleExecuteTx = useCallback(
+    async (senderId: string, receiverId: string, amount: number) => {
+      if (isAnvilMode) {
+        // Send real transaction to Anvil RPC node!
+        await sendAnvilTransaction(senderId, receiverId, amount);
+        // Refresh graph data from Anvil
+        await loadAnvilData();
+        setSelectedWalletId(senderId);
+      } else {
+        // Local simulation update
+        setNodes(prevNodes => {
+          return prevNodes.map(node => {
+            if (node.id === senderId) {
+              const newBal = Math.max(0, node.balance - amount);
+              const newPct = (newBal / tokenInfo.totalSupply) * 100;
+              return { ...node, balance: newBal, percentage: parseFloat(newPct.toFixed(2)) };
+            }
+            if (node.id === receiverId) {
+              const newBal = node.balance + amount;
+              const newPct = (newBal / tokenInfo.totalSupply) * 100;
+              return { ...node, balance: newBal, percentage: parseFloat(newPct.toFixed(2)) };
+            }
+            return node;
+          });
+        });
 
-    // Append new transfer link
-    const newLink: TransferLink = {
-      id: `sim-link-${Date.now()}`,
-      source: senderId,
-      target: receiverId,
-      amount,
-      txHash: `0x${Math.random().toString(16).substring(2, 10)}...`,
-      timestamp: 'Just now',
-      transferCount: 1
-    };
+        const newLink: TransferLink = {
+          id: `sim-link-${Date.now()}`,
+          source: senderId,
+          target: receiverId,
+          amount,
+          txHash: `0x${Math.random().toString(16).substring(2, 10)}...`,
+          timestamp: 'Just now',
+          transferCount: 1,
+        };
 
-    setLinks(prev => [newLink, ...prev]);
-
-    // Select the sender wallet to view updated cluster
-    setSelectedWalletId(senderId);
-  }, [tokenInfo.totalSupply]);
+        setLinks(prev => [newLink, ...prev]);
+        setSelectedWalletId(senderId);
+      }
+    },
+    [isAnvilMode, loadAnvilData, tokenInfo.totalSupply]
+  );
 
   return (
     <div className="flex flex-col h-screen w-screen bg-[#060911] text-slate-100 overflow-hidden">
       {/* Top Header Navigation */}
       <Header
+        isAnvilMode={isAnvilMode}
+        onToggleAnvilMode={handleToggleAnvilMode}
+        anvilStatus={anvilStatus}
         selectedTokenKey={selectedTokenKey}
         onSelectTokenKey={handleSelectTokenKey}
         tokenInfo={tokenInfo}
@@ -103,9 +193,7 @@ export const App: React.FC = () => {
         onSearchChange={setSearchKeyword}
         hideUnclustered={hideUnclustered}
         onToggleHideUnclustered={() => setHideUnclustered(prev => !prev)}
-        clusters={clusters}
-        selectedClusterId={selectedClusterId}
-        onSelectCluster={setSelectedClusterId}
+        onRefreshData={loadAnvilData}
         onOpenTxSimulator={() => setIsTxSimulatorOpen(true)}
       />
 
@@ -128,7 +216,7 @@ export const App: React.FC = () => {
           />
         </div>
 
-        {/* Sidebar Panel (Top Holders & Clusters) */}
+        {/* Sidebar Panel */}
         <Sidebar
           nodes={updatedNodes}
           clusters={clusters}
@@ -153,6 +241,7 @@ export const App: React.FC = () => {
       {/* Transaction Simulator Modal */}
       {isTxSimulatorOpen && (
         <TxSimulatorModal
+          isAnvilMode={isAnvilMode}
           nodes={updatedNodes}
           onExecuteTx={handleExecuteTx}
           onClose={() => setIsTxSimulatorOpen(false)}
