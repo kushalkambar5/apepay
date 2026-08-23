@@ -55,6 +55,16 @@ export default function WalletPage() {
     fetchPoolBalance();
   }, [fetchPoolBalance]);
 
+  // Auto-register connected wallet if merchant has no payout wallet stored in DB
+  useEffect(() => {
+    if (account.address && !loading && wallets.length === 0) {
+      merchantApi
+        .addWallet({ address: account.address, network: 'anvil', walletType: 'payout' })
+        .then(() => fetchWallets())
+        .catch((err) => console.error('Failed to auto-register wallet', err));
+    }
+  }, [account.address, loading, wallets.length]);
+
   const activeWallet = wallets[0];
   const displayAddress = activeWallet?.address || account.address;
 
@@ -84,10 +94,11 @@ export default function WalletPage() {
     }
 
     try {
-      const result = await merchantApi.withdraw(withdrawAmount);
+      const result = await merchantApi.withdraw(withdrawAmount, displayAddress || undefined);
       setWithdrawResult({ txHash: result.txHash, amountEth: result.amountEth });
-      // Refresh pool balance after successful withdrawal
+      // Refresh pool balance and wallets after successful withdrawal
       await fetchPoolBalance();
+      await fetchWallets();
     } catch (err: any) {
       setWithdrawError(err?.message || 'Withdrawal failed. Please try again.');
     } finally {

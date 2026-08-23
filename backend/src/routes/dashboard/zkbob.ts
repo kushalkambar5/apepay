@@ -8,8 +8,11 @@ import { authenticateDashboard } from '../../middleware/auth.middleware';
 import { BadRequestError } from '../../lib/errors';
 import { logger } from '../../lib/logger';
 
+import { getAddress, isAddress } from 'viem';
+
 const withdrawSchema = z.object({
   amountEth: z.string().refine((v) => parseFloat(v) > 0, { message: 'Amount must be > 0' }),
+  recipientAddress: z.string().optional(),
 });
 
 export async function dashboardZkBobRoutes(fastify: FastifyInstance) {
@@ -34,16 +37,33 @@ export async function dashboardZkBobRoutes(fastify: FastifyInstance) {
 
     // Find merchant's registered payout wallet
     const wallets = await merchantService.getWallets(merchant.id);
-    const payoutWallet = wallets.find((w) => w.walletType === 'payout' && w.isActive);
+    let payoutWallet = wallets.find((w) => w.walletType === 'payout' && w.isActive);
 
-    if (!payoutWallet || !payoutWallet.address) {
+    const formattedRecipient = body.recipientAddress && isAddress(body.recipientAddress, { strict: false })
+      ? getAddress(body.recipientAddress)
+      : undefined;
+
+    // Auto-register payout wallet if recipientAddress is passed and no payout wallet is stored
+    if ((!payoutWallet || !payoutWallet.address) && formattedRecipient) {
+      payoutWallet = await merchantService.addWallet(merchant.id, {
+        address: formattedRecipient,
+        network: 'anvil',
+        walletType: 'payout',
+      });
+    }
+
+    const recipientAddress = payoutWallet?.address
+      ? (isAddress(payoutWallet.address, { strict: false }) ? getAddress(payoutWallet.address) : payoutWallet.address)
+      : formattedRecipient;
+
+    if (!recipientAddress) {
       throw new BadRequestError(
-        'No active payout wallet configured. Please add a payout wallet in settings first.'
+        'No active payout wallet configured. Please connect a wallet or add one in settings.'
       );
     }
 
     logger.info(
-      { merchantId: merchant.id, recipient: payoutWallet.address, amountEth: body.amountEth },
+      { merchantId: merchant.id, recipient: recipientAddress, amountEth: body.amountEth },
       'Initiating zkBob pool withdrawal'
     );
 
@@ -52,7 +72,7 @@ export async function dashboardZkBobRoutes(fastify: FastifyInstance) {
       .insert(withdrawalEvents)
       .values({
         merchantId: merchant.id,
-        recipientAddress: payoutWallet.address,
+        recipientAddress: recipientAddress,
         amountEth: body.amountEth,
         status: 'pending',
       })
@@ -61,7 +81,7 @@ export async function dashboardZkBobRoutes(fastify: FastifyInstance) {
     try {
       // Execute the on-chain withdrawal via OPERATOR_PRIVATE_KEY
       const result = await zkbobService.withdrawToMerchant({
-        recipientAddress: payoutWallet.address as `0x${string}`,
+        recipientAddress: recipientAddress as `0x${string}`,
         amountEth: body.amountEth,
         ref: withdrawalRecord.id,
       });
@@ -81,7 +101,7 @@ export async function dashboardZkBobRoutes(fastify: FastifyInstance) {
         success: true,
         txHash: result.txHash,
         amountEth: body.amountEth,
-        recipient: payoutWallet.address,
+        recipient: recipientAddress,
         status: 'confirmed',
       });
     } catch (err) {

@@ -181,22 +181,33 @@ export class ZkBobAdapter implements PrivacyPaymentProtocol {
   }
 
   async withdrawToMerchant(params: WithdrawParams): Promise<WithdrawResult> {
-    const amountWei = parseEther(params.amountEth);
+    const parsedFloat = parseFloat(params.amountEth);
+    if (isNaN(parsedFloat) || parsedFloat <= 0) {
+      throw new Error('Invalid withdrawal amount');
+    }
+    // Format float to string without trailing exponent artifacts
+    const cleanAmountStr = parsedFloat.toFixed(6);
+    const amountWei = parseEther(cleanAmountStr);
 
     // Encode ref as bytes32
     const refBytes = crypto.createHash('sha256').update(params.ref).digest();
     const ref = (`0x${refBytes.toString('hex')}`) as `0x${string}`;
 
-    const txHash = await this.walletClient.writeContract({
-      address: this.poolAddress,
-      abi: POOL_VAULT_ABI,
-      functionName: 'withdraw',
-      args: [params.recipientAddress, amountWei, ref],
-    });
+    try {
+      const txHash = await this.walletClient.writeContract({
+        address: this.poolAddress,
+        abi: POOL_VAULT_ABI,
+        functionName: 'withdraw',
+        args: [params.recipientAddress, amountWei, ref],
+      });
 
-    await this.publicClient.waitForTransactionReceipt({ hash: txHash });
+      await this.publicClient.waitForTransactionReceipt({ hash: txHash });
 
-    return { txHash };
+      return { txHash };
+    } catch (error: any) {
+      console.error('Failed to execute PoolVault withdrawal:', error);
+      throw new Error(error?.shortMessage || error?.message || 'On-chain withdrawal failed');
+    }
   }
 
   async getPoolBalance(): Promise<string> {

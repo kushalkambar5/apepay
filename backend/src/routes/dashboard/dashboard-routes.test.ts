@@ -5,6 +5,8 @@ import { dashboardWebhookRoutes } from './webhooks';
 import { dashboardAuthRoutes } from './auth';
 import { errorHandler } from '../../middleware/error.middleware';
 
+import { dashboardZkBobRoutes } from './zkbob';
+
 describe('Dashboard HTTP Routes DELETE Test', () => {
   let app: any;
   let authToken: string;
@@ -28,6 +30,7 @@ describe('Dashboard HTTP Routes DELETE Test', () => {
     await app.register(dashboardAuthRoutes, { prefix: '/dashboard/auth' });
     await app.register(dashboardApiKeyRoutes, { prefix: '/dashboard' });
     await app.register(dashboardWebhookRoutes, { prefix: '/dashboard' });
+    await app.register(dashboardZkBobRoutes, { prefix: '/dashboard' });
 
     const email = `test_routes_${Date.now()}@apepay.local`;
     const regRes = await app.inject({
@@ -111,5 +114,21 @@ describe('Dashboard HTTP Routes DELETE Test', () => {
     const body = JSON.parse(res.payload);
     expect(body.error.code).toBe('NOT_FOUND');
     expect(body.error.message).toBe('Webhook endpoint not found');
+  });
+
+  it('should auto-register recipientAddress if no payout wallet exists when initiating withdraw', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/dashboard/zkbob/withdraw',
+      headers: { authorization: `Bearer ${authToken}` },
+      payload: {
+        amountEth: '0.1',
+        recipientAddress: '0x5d76000000000000000000000000000000085fdA',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const payload = JSON.parse(res.payload);
+    expect(payload.success).toBe(true);
+    expect(payload.recipient).toBe('0x5D76000000000000000000000000000000085fdA');
   });
 });

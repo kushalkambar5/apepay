@@ -53,10 +53,10 @@ export const merchantApi = {
   },
 
   /** Withdraw ETH from the PoolVault to the merchant's registered payout wallet */
-  async withdraw(amountEth: string): Promise<WithdrawResult> {
+  async withdraw(amountEth: string, recipientAddress?: string): Promise<WithdrawResult> {
     return apiRequest<WithdrawResult>('/dashboard/zkbob/withdraw', {
       method: 'POST',
-      body: JSON.stringify({ amountEth }),
+      body: JSON.stringify({ amountEth, recipientAddress }),
     });
   },
 };
